@@ -1,0 +1,4 @@
+
+# The number of days prior to visit date where measurements taken within that time are acceptable
+lab_days: 5 
+symp_days: 30

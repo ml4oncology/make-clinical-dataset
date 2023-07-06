@@ -1,0 +1,115 @@
+"""
+Script to combine the features into one unified dataset
+"""
+from itertools import product
+from pathlib import Path
+import argparse
+import sys
+ROOT_DIR = Path(__file__).parent.parent.as_posix()
+sys.path.append(ROOT_DIR)
+
+import pandas as pd
+import yaml
+
+from src import logger
+from src.combine import (
+    add_engineered_features,
+    combine_demographic_to_main_data, 
+    combine_feat_to_main_data, 
+    combine_perc_dose_to_main_data,
+    combine_treatment_to_main_data
+)
+from src.util import load_included_drugs
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--align-on', 
+        type=str, 
+        default='treatment-dates',
+        help=('Specifies the events/dates features will be aligned on. Available options are:\n'
+              '- "treatment-dates": Aligns features based on treatment dates.\n'
+              '- "weekly-mondays": Aligns features based on the dates of every Monday.\n'
+              '- A filepath to a parquet object or CSV table with a datetime column: Aligns features based on the '
+              'datetime values')
+    )
+    parser.add_argument(
+        '--date-column', 
+        type=str, 
+        default='treatment_date', 
+        help='Name of the datetime column in the main data'
+    )
+    parser.add_argument(
+        '--output-filename', 
+        type=str, 
+        default='treatment_centered_clinical_dataset', 
+        help='Name of the output file, do not include file extension'
+    )
+    parser.add_argument('--output-dir', type=str, default=f'{ROOT_DIR}/data/processed')
+    parser.add_argument('--data-dir', type=str, default=f'{ROOT_DIR}/data')
+    parser.add_argument('--config-path', type=str, default=f'{ROOT_DIR}/config.yaml')
+    args = parser.parse_args()
+    return args
+
+def main():
+    args = parse_args()
+    align_on = args.align_on
+    main_date_col = args.date_column
+    output_filename = args.output_filename
+    output_dir = args.output_dir
+    data_dir = args.data_dir
+    config_path = args.config_path
+
+    lab = pd.read_parquet(f'{data_dir}/interim/lab.parquet.gzip')
+    trt = pd.read_parquet(f'{data_dir}/interim/treatment.parquet.gzip')
+    dmg = pd.read_parquet(f'{data_dir}/interim/demographic.parquet.gzip')
+    sym = pd.read_parquet(f'{data_dir}/interim/symptom.parquet.gzip')
+    included_drugs = load_included_drugs(data_dir=f'{data_dir}/external')
+    with open(config_path) as file:
+        cfg = yaml.safe_load(file)
+
+    if align_on == 'treatment-dates':
+        df = trt
+    elif align_on == 'weekly-mondays':
+        #TODO: make mrn and start and end date selection robust (i.e. make them into command line arguments)
+        mrns = trt['mrn'].unique()
+        dates = pd.date_range(start='2018-01-01', end='2018-12-31', freq='W-MON')
+        df = pd.DataFrame(product(mrns, dates), columns=['mrn', main_date_col])
+    elif align_on.endswith('.parquet.gzip') or align_on.endswith('.parquet'):
+        df = pd.read_parquet(align_on)
+    elif align_on.endswith('.csv'):
+        df = pd.read_csv(align_on)
+    else:
+        raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
+
+    if align_on != 'treatment-dates':
+        logger.info('Combining treatment features...')
+        df = combine_treatment_to_main_data(df, trt, main_date_col=main_date_col, time_window=(-7,0))
+    
+    logger.info('Combining demographic features...')
+    df = combine_demographic_to_main_data(main=df, demographic=dmg, main_date_col=main_date_col)
+    
+    logger.info('Combining symptom features...')
+    df = combine_feat_to_main_data(
+        main=df, feat=sym, main_date_col=main_date_col, feat_date_col='survey_date', time_window=(-cfg['symp_days'],0)
+    )
+    
+    logger.info('Combining lab features...')
+    df = combine_feat_to_main_data(
+        main=df, feat=lab, main_date_col=main_date_col, feat_date_col='obs_date', time_window=(-cfg['lab_days'],0)
+    )
+    
+    logger.info('Combining engineered features...')
+    df = combine_perc_dose_to_main_data(main=df, included_drugs=included_drugs)
+    df = add_engineered_features(df, date_col=main_date_col)
+    
+    df.to_parquet(f'{output_dir}/{output_filename}.parquet.gzip', compression='gzip', index=False)
+    
+if __name__ == '__main__':
+    """
+    Example of running the script:
+
+    > python scripts/combine_features.py --align-on weekly-mondays --date-column assessment_date --output-filename \
+        monday_centered_clinical_dataset
+    """
+    main()
