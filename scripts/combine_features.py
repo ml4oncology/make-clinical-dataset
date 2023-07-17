@@ -4,6 +4,7 @@ Script to combine the features into one unified dataset
 from itertools import product
 from pathlib import Path
 import argparse
+import os
 import sys
 ROOT_DIR = Path(__file__).parent.parent.as_posix()
 sys.path.append(ROOT_DIR)
@@ -60,6 +61,7 @@ def main():
     data_dir = args.data_dir
     config_path = args.config_path
 
+    if not os.path.exists(output_dir): os.makedirs(output_dir)
     lab = pd.read_parquet(f'{data_dir}/interim/lab.parquet.gzip')
     trt = pd.read_parquet(f'{data_dir}/interim/treatment.parquet.gzip')
     dmg = pd.read_parquet(f'{data_dir}/interim/demographic.parquet.gzip')
