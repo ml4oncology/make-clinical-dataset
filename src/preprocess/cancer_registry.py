@@ -6,7 +6,7 @@ import pandas as pd
 
 from .. import ROOT_DIR, logger
 from ..constants import cancer_code_map
-from ..util import get_num_removed_patients
+from ..util import get_excluded_numbers
 
 def get_demographic_data(data_dir: Optional[str] = None, external_data: Optional[pd.DataFrame] = None):
     if data_dir is None:
@@ -57,7 +57,7 @@ def filter_demographic_data(df):
 
     # filter out patients without medical record numbers
     mask = df['mrn'].notnull()
-    get_num_removed_patients(df, mask, context='with no MRN')
+    get_excluded_numbers(df, mask, context=' with no MRN')
     df = df[mask]
 
     # clean data types
@@ -70,7 +70,7 @@ def filter_demographic_data(df):
 
     # filter out patients whose sex is not Male/Female
     mask = df['sex'].isin(['Male', 'Female'])
-    get_num_removed_patients(df, mask, context='whose sex is other than Male/Female')
+    get_excluded_numbers(df, mask, context=' in which sex is other than Male/Female')
     df = df[mask].copy()
     df['female'] = df.pop('sex') == 'Female'
 

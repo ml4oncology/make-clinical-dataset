@@ -14,11 +14,19 @@ def load_included_drugs(data_dir: Optional[str] = None) -> pd.DataFrame:
     if data_dir is None:
         data_dir = f'{ROOT_DIR}/data/external'
         
-    df = pd.read_csv(f'{data_dir}/drug_list.csv')
+    df = pd.read_csv(f'{data_dir}/opis_drug_list.csv')
     col_map = {'Drug_name': 'name', 'chemo': 'category', 'Recommended_dose_multiplier': 'recommended_dose_formula'}
     df = df.rename(columns=col_map)
     df = df.drop(columns=['counts'])
     df = df.query('category == "INCLUDE"')
+    return df
+
+def load_included_regimens(data_dir: Optional[str] = None) -> pd.DataFrame:
+    if data_dir is None:
+        data_dir = f'{ROOT_DIR}/data/external'
+        
+    df = pd.read_csv(f'{data_dir}/opis_regimen_list.csv')
+    df.columns = df.columns.str.lower()
     return df
 
 ###############################################################################
@@ -66,6 +74,8 @@ def get_nunique_categories(df: pd.DataFrame) -> pd.DataFrame:
         df[catcols].nunique(), columns=['Number of Unique Categories']
     ).T
 
-def get_num_removed_patients(df, mask: pd.Series, context: str = '') -> None:
-    N = len(set(df['mrn']) - set(df.loc[mask, 'mrn']))
-    logger.info(f'Removing {N} patients {context}')
+def get_excluded_numbers(df, mask: pd.Series, context: str = '.') -> None:
+    """Report the number of patients and sessions that were excluded"""
+    N_sessions = sum(~mask)
+    N_patients = len(set(df['mrn']) - set(df.loc[mask, 'mrn']))
+    logger.info(f'Removing {N_patients} patients and {N_sessions} sessions{context}')

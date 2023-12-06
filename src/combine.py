@@ -15,7 +15,7 @@ from .feat_eng import (
     get_years_diff, 
 )
 from .preprocess.opis import clean_drug_name
-from .util import get_num_removed_patients, split_and_parallelize
+from .util import get_excluded_numbers, split_and_parallelize
 
 def combine_demographic_to_main_data(main: pd.DataFrame, demographic: pd.DataFrame, main_date_col: str):
     """
@@ -26,13 +26,13 @@ def combine_demographic_to_main_data(main: pd.DataFrame, demographic: pd.DataFra
 
     # exclude patients with missing birth date
     mask = df['date_of_birth'].notnull()
-    get_num_removed_patients(df, mask, context='with missing birth date')
+    get_excluded_numbers(df, mask, context=' with missing birth date')
     df = df[mask]
 
     # exclude patients under 18 years of age
     df['age'] = get_years_diff(df, main_date_col, 'date_of_birth')
     mask = df['age'] >= 18
-    get_num_removed_patients(df, mask, context='under 18 years of age')
+    get_excluded_numbers(df, mask, context=' under 18 years of age')
     df = df[mask]
 
     # convert each cancer site / morphology datetime columns into binary indicator variables based on whether diagnosis

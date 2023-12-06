@@ -14,7 +14,7 @@ from src.preprocess.cancer_registry import get_demographic_data
 from src.preprocess.dart import get_symptoms_data
 from src.preprocess.lab import get_lab_data
 from src.preprocess.opis import get_treatment_data
-from src.util import load_included_drugs
+from src.util import load_included_drugs, load_included_regimens
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -28,6 +28,7 @@ def main():
     if not os.path.exists(f'{data_dir}/interim'): os.makedirs(f'{data_dir}/interim')
 
     included_drugs = load_included_drugs(data_dir=f'{data_dir}/external')
+    included_regimens = load_included_regimens(data_dir=f'{data_dir}/external')
     mrn_map = pd.read_csv(f'{data_dir}/external/MRN_map.csv')
     mrn_map = mrn_map.set_index('RESEARCH_ID')['PATIENT_MRN'].to_dict()
 
@@ -40,7 +41,7 @@ def main():
     canc_reg.to_parquet(f'{data_dir}/interim/demographic.parquet.gzip', compression='gzip', index=False)
 
     # treatment
-    opis = get_treatment_data(included_drugs)
+    opis = get_treatment_data(included_drugs, included_regimens, data_dir=f'{data_dir}/raw')
     opis.to_parquet(f'{data_dir}/interim/treatment.parquet.gzip', compression='gzip', index=False)
 
     # laboratory tests

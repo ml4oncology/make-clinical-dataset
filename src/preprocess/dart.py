@@ -5,7 +5,7 @@ from typing import Optional
 import pandas as pd
 
 from .. import ROOT_DIR, logger
-from ..util import get_num_removed_patients
+from ..util import get_excluded_numbers
 
 def get_symptoms_data(data_dir: Optional[str] = None):
     if data_dir is None:
@@ -46,7 +46,7 @@ def filter_symptoms_data(df):
 
     # filter out patients whose sex is not Male/Female
     mask = df['gender'] != 'Unknown'
-    get_num_removed_patients(df, mask, context='whose sex is Unknown')
+    get_excluded_numbers(df, mask, context=' in which sex is Unknown')
     df = df[mask].copy()
     df['female'] = df.pop('gender') == 'Female'
 
@@ -54,7 +54,7 @@ def filter_symptoms_data(df):
     cols = df.columns
     cols = cols[cols.str.contains('esas_|_ecog')]
     mask = df[cols].isnull().all(axis=1)
-    get_num_removed_patients(df, ~mask, context='without any symptom scores')
+    get_excluded_numbers(df, ~mask, context=' without any symptom scores')
     df = df[~mask]
 
     return df
