@@ -1,14 +1,14 @@
 """
 Module to preprocess laboratory test data, which includes hematology and biochemistry data
 """
-from typing import Dict, Optional
+from typing import Optional
 
 import pandas as pd
 
 from .. import ROOT_DIR
 from ..constants import obs_map
 
-def get_lab_data(mrn_map: Dict[str, int], data_dir: Optional[str] = None):
+def get_lab_data(mrn_map: dict[str, int], data_dir: Optional[str] = None):
     if data_dir is None:
         data_dir = f'{ROOT_DIR}/data/raw'
 
@@ -43,7 +43,7 @@ def process_lab_data(df):
     df.columns.name = None
     return df
 
-def filter_lab_data(df, obs_name_map: Optional[Dict] = None):
+def filter_lab_data(df, obs_name_map: Optional[dict] = None):
     df = clean_lab_data(df)
     
     # exclude rows where observation value is missing

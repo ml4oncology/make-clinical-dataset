@@ -8,16 +8,13 @@ from .. import ROOT_DIR, logger
 from ..constants import cancer_code_map
 from ..util import get_excluded_numbers
 
-def get_demographic_data(data_dir: Optional[str] = None, external_data: Optional[pd.DataFrame] = None):
+def get_demographic_data(data_dir: Optional[str] = None):
     if data_dir is None:
         data_dir = f'{ROOT_DIR}/data/raw'
 
     df = pd.read_parquet(f'{data_dir}/cancer_registry.parquet.gzip')
     df = filter_demographic_data(df)
     df = process_demographic_data(df)
-    if external_data is not None:
-        df = add_external_demographic_data(df, external_data)
-        
     return df
 
 def process_demographic_data(df):
@@ -81,16 +78,5 @@ def filter_demographic_data(df):
         df[col] = df[col].str[:3]
         # map code to english
         # df[col] = df[col].map(cancer_code_map)
-
-    return df
-
-def add_external_demographic_data(df, external_df):
-    """Combine external demographic data (from DART) to cancer registry"""
-    assert external_df['mrn'].nunique() == len(external_df) # ensure no conflicts in the external demographic data
-    mask = ~external_df['mrn'].isin(df['mrn']) # get all patients that does not exist in cancer registry
-    df = pd.concat([df, external_df[mask]])
-    
-    msg = f'Number of patients in cancer registry = {len(df)}. Adding an additional {sum(mask)} patients from DART.'
-    logger.info(msg)
 
     return df

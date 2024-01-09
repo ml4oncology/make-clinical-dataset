@@ -16,6 +16,7 @@ from src import logger
 from src.combine import (
     add_engineered_features,
     combine_demographic_to_main_data, 
+    combine_event_to_main_data,
     combine_feat_to_main_data, 
     combine_perc_dose_to_main_data,
     combine_treatment_to_main_data
@@ -66,6 +67,7 @@ def main():
     trt = pd.read_parquet(f'{data_dir}/interim/treatment.parquet.gzip')
     dmg = pd.read_parquet(f'{data_dir}/interim/demographic.parquet.gzip')
     sym = pd.read_parquet(f'{data_dir}/interim/symptom.parquet.gzip')
+    edv = pd.read_parquet(f'{data_dir}/interim/emergency_department_visit.parquet.gzip')
     included_drugs = load_included_drugs(data_dir=f'{data_dir}/external')
     with open(config_path) as file:
         cfg = yaml.safe_load(file)
@@ -93,12 +95,20 @@ def main():
     
     logger.info('Combining symptom features...')
     df = combine_feat_to_main_data(
-        main=df, feat=sym, main_date_col=main_date_col, feat_date_col='survey_date', time_window=(-cfg['symp_days'],0)
+        main=df, feat=sym, main_date_col=main_date_col, feat_date_col='survey_date', 
+        time_window=(-cfg['symp_lookback_window'],0)
     )
     
     logger.info('Combining lab features...')
     df = combine_feat_to_main_data(
-        main=df, feat=lab, main_date_col=main_date_col, feat_date_col='obs_date', time_window=(-cfg['lab_days'],0)
+        main=df, feat=lab, main_date_col=main_date_col, feat_date_col='obs_date', 
+        time_window=(-cfg['lab_lookback_window'],0)
+    )
+
+    logger.info('Combining ED visit features...')
+    df = combine_event_to_main_data(
+        main=df, event=edv, main_date_col='treatment_date', event_date_col='adm_date', event_name='ED_visit',
+        lookback_window=cfg['ed_visit_lookback_window']
     )
     
     logger.info('Combining engineered features...')

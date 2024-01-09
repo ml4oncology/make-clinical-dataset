@@ -12,6 +12,7 @@ import pandas as pd
 
 from src.preprocess.cancer_registry import get_demographic_data
 from src.preprocess.dart import get_symptoms_data
+from src.preprocess.emergency import get_emergency_department_data
 from src.preprocess.lab import get_lab_data
 from src.preprocess.opis import get_treatment_data
 from src.util import load_included_drugs, load_included_regimens
@@ -33,11 +34,11 @@ def main():
     mrn_map = mrn_map.set_index('RESEARCH_ID')['PATIENT_MRN'].to_dict()
 
     # symptoms
-    dart, dart_demog = get_symptoms_data(data_dir=f'{data_dir}/raw')
+    dart = get_symptoms_data(data_dir=f'{data_dir}/raw')
     dart.to_parquet(f'{data_dir}/interim/symptom.parquet.gzip', compression='gzip', index=False)
 
     # demographics
-    canc_reg = get_demographic_data(data_dir=f'{data_dir}/raw', external_data=dart_demog)
+    canc_reg = get_demographic_data(data_dir=f'{data_dir}/raw')
     canc_reg.to_parquet(f'{data_dir}/interim/demographic.parquet.gzip', compression='gzip', index=False)
 
     # treatment
@@ -47,6 +48,10 @@ def main():
     # laboratory tests
     lab = get_lab_data(mrn_map, data_dir=f'{data_dir}/raw')
     lab.to_parquet(f'{data_dir}/interim/lab.parquet.gzip', compression='gzip', index=False)
+
+    # emergency department visits
+    ed_visit = get_emergency_department_data(data_dir=f'{data_dir}/raw')
+    ed_visit.to_parquet(f'{data_dir}/interim/emergency_department_visit.parquet.gzip', compression='gzip', index=False)
     
 if __name__ == '__main__':
     main()

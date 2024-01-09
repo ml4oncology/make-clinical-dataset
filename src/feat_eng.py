@@ -1,8 +1,6 @@
 """
 Module for feature engineering
 """
-from typing import Dict
-
 import numpy as np
 import pandas as pd
 
@@ -39,7 +37,7 @@ def get_line_of_therapy(df):
 ###############################################################################
 # Drug dosages
 ###############################################################################
-def get_perc_ideal_dose_given(df, drug_to_dose_formula_map: Dict[str, str]):
+def get_perc_ideal_dose_given(df, drug_to_dose_formula_map: dict[str, str]):
     """Convert given dose as a percentage of ideal (recommended) dose
 
     df must have weight, body surface area, age, female, and creatinine columns along with the dosage columns
@@ -50,7 +48,7 @@ def get_perc_ideal_dose_given(df, drug_to_dose_formula_map: Dict[str, str]):
         if dose_col not in df.columns: continue
         ideal_dose = get_ideal_dose(df, drug, dose_formula)
         perc_ideal_dose_given = df[dose_col] / ideal_dose
-        perc_ideal_dose_given = perc_ideal_dose_given.fillna(0)
+        perc_ideal_dose_given = perc_ideal_dose_given.fillna(0).replace(np.inf, 0)
         result[drug] = perc_ideal_dose_given
     result = pd.DataFrame(result)
     result.columns = '%_ideal_dose_given_' + result.columns

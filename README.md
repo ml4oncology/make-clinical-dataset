@@ -5,6 +5,7 @@ Generate clinical dataset from EMR data of cancer patients treated at Princess M
 The main aim of this repository is to have a central pipeline for generating the same clinical dataset to be used for multiple projects, from recommending treatments/medications, estimating cancer progression, to predicting various undesirable cancer events (e.g. venous thromboembolism, cytopenia, acute care use, nephrotoxicity, symptom deterioration, death).
 
 # Data Location
+The external data is located in the Google Drive folder [ml4o/projects/aim2reduce/data] (https://drive.google.com/drive/folders/1DcUbnKlEmj0wObx1VMOnPWheBp0szp8r?usp=drive_link)
 The raw data is located in the HPC4Health cluster hosted by University Health Network. 
 
 # Instructions

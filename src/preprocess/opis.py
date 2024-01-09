@@ -1,7 +1,7 @@
 """
 Module to preprocess OPIS (systemic therapy treatment data)
 """
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -190,7 +190,7 @@ def clean_drugs(df) -> pd.DataFrame:
     return df
 
 
-def clean_regimen_name(regimen: str) -> Tuple[str, str]:
+def clean_regimen_name(regimen: str) -> tuple[str, str]:
     note = ''
     
     # make entries consistent (same abbreviations)
@@ -286,7 +286,7 @@ def clean_regimen_name(regimen: str) -> Tuple[str, str]:
     return regimen, note
 
 
-def clean_drug_name(drug: str) -> Tuple[str, str]:
+def clean_drug_name(drug: str) -> tuple[str, str]:
     note = ''
     
     # remove excess drug information from the drug entries

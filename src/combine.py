@@ -2,7 +2,6 @@
 Module to combine features
 """
 from functools import partial
-from typing import Tuple
 
 from tqdm import tqdm
 import pandas as pd
@@ -17,7 +16,12 @@ from .feat_eng import (
 from .preprocess.opis import clean_drug_name
 from .util import get_excluded_numbers, split_and_parallelize
 
-def combine_demographic_to_main_data(main: pd.DataFrame, demographic: pd.DataFrame, main_date_col: str):
+
+def combine_demographic_to_main_data(
+    main: pd.DataFrame, 
+    demographic: pd.DataFrame, 
+    main_date_col: str
+) -> pd.DataFrame:
     """
     Args:
         main_date_col: The column name of the main asessment date
@@ -44,7 +48,13 @@ def combine_demographic_to_main_data(main: pd.DataFrame, demographic: pd.DataFra
 
     return df
 
-def combine_treatment_to_main_data(main: pd.DataFrame, treatment: pd.DataFrame, main_date_col: str, **kwargs):
+
+def combine_treatment_to_main_data(
+    main: pd.DataFrame, 
+    treatment: pd.DataFrame, 
+    main_date_col: str, 
+    **kwargs
+) -> pd.DataFrame:
     """Combine treatment information to the main data
     For drug dosage features, add up the treatment drug dosages of the past x days for each drug
     For other treatment features, forward fill the features available in the past x days 
@@ -62,7 +72,8 @@ def combine_treatment_to_main_data(main: pd.DataFrame, treatment: pd.DataFrame, 
     df = df.rename(columns={'trt_date': 'treatment_date'})
     return df
 
-def combine_perc_dose_to_main_data(main: pd.DataFrame, included_drugs: pd.DataFrame):
+
+def combine_perc_dose_to_main_data(main: pd.DataFrame, included_drugs: pd.DataFrame) -> pd.DataFrame:
     """Combine percentage of ideal dose given to main data 
     And remove the raw dosages features (regimen dose and given dose)
 
@@ -84,32 +95,34 @@ def combine_perc_dose_to_main_data(main: pd.DataFrame, included_drugs: pd.DataFr
 
     return df
 
+
 def combine_feat_to_main_data(
     main: pd.DataFrame, 
     feat: pd.DataFrame, 
     main_date_col: str, 
     feat_date_col: str, 
     **kwargs
-):
+) -> pd.DataFrame:
     """Combine feature(s) to the main dataset
 
     Both main and feat should have mrn and date columns
     """
     mask = main['mrn'].isin(feat['mrn'])
-    worker = partial(extractor, main_date_col=main_date_col, feat_date_col=feat_date_col, **kwargs)
+    worker = partial(feature_extractor, main_date_col=main_date_col, feat_date_col=feat_date_col, **kwargs)
     result = split_and_parallelize((main[mask], feat), worker)
     cols = ['index'] + feat.columns.drop(['mrn', feat_date_col]).tolist()
     result = pd.DataFrame(result, columns=cols).set_index('index')
     df = main.join(result)
     return df
 
-def extractor(
+
+def feature_extractor(
     partition, 
     main_date_col: str,
     feat_date_col: str,
     keep: str = 'last', 
-    time_window: Tuple[int, int] = (-5,0)
-):
+    time_window: tuple[int, int] = (-5,0)
+) -> list:
     """Extract either the sum, first, or last forward filled feature measurements (lab tests, symptom scores, etc) 
     taken within the time window (centered on each main visit date)
 
@@ -150,7 +163,75 @@ def extractor(
     
     return results
 
-def add_engineered_features(df, date_col: str = 'treatment_date'):
+
+def combine_event_to_main_data(
+    main: pd.DataFrame, 
+    event: pd.DataFrame, 
+    main_date_col: str, 
+    event_date_col: str, 
+    event_name: str,
+    lookback_window: int = 5,
+    **kwargs
+) -> pd.DataFrame:
+    """Combine features extracted from event data (emergency department visits, hospitalization, etc) to the main 
+    dataset
+
+    Args:
+        main_date_col: The column name of the main visit date
+        event_date_col: The column name of the event date
+        lookback_window: The lookback window in terms of number of years from treatment date to extract event features
+    """
+    mask = main['mrn'].isin(event['mrn'])
+    worker = partial(
+        event_feature_extractor, 
+        main_date_col=main_date_col, 
+        event_date_col=event_date_col, 
+        lookback_window=lookback_window, 
+        **kwargs
+    )
+    result = split_and_parallelize((main[mask], event), worker)
+    cols = ['index', f'num_prior_{event_name}s_within_{lookback_window}_years', f'days_since_prev_{event_name}']
+    result = pd.DataFrame(result, columns=cols).set_index('index')
+    df = main.join(result)
+    return df
+
+
+def event_feature_extractor(
+    partition, 
+    main_date_col: str,
+    event_date_col: str,
+    lookback_window: int = 5,
+) -> list:
+    """Extract features from the event data, namely
+    1. Number of days since the most recent event
+    2. Number of prior events in the past X years
+
+    Args:
+        main_date_col: The column name of the main visit date
+        event_date_col: The column name of the event date
+        lookback_window: The lookback window in terms of number of years from treatment date to extract event features
+    """
+    main_df, event_df = partition
+    result = []
+    for mrn, main_group in tqdm(main_df.groupby('mrn')):
+        event_group = event_df.query('mrn == @mrn')
+        event_dates = event_group[event_date_col]
+        
+        for idx, date in main_group[main_date_col].items():
+            # get feature
+            # 1. number of days since closest event prior to main visit date
+            # 2. number of events within the lookback window 
+            earliest_date = date - pd.Timedelta(days=lookback_window*365)
+            mask = event_dates.between(earliest_date, date, inclusive='left')
+            if mask.any():
+                N_prior_events = mask.sum()
+                # assert(sum(adm_dates == adm_dates[mask].max()) == 1)
+                N_days = (date - event_dates[mask].iloc[-1]).days
+                result.append([idx, N_prior_events, N_days])
+    return result
+
+
+def add_engineered_features(df, date_col: str = 'treatment_date') -> pd.DataFrame:
     df = get_visit_month_feature(df, col=date_col)
     df['line_of_therapy'] = df.groupby('mrn', group_keys=False).apply(get_line_of_therapy)
     df['days_since_starting_treatment'] = (df[date_col] - df['first_treatment_date']).dt.days

@@ -7,6 +7,7 @@ import pandas as pd
 from .. import ROOT_DIR, logger
 from ..util import get_excluded_numbers
 
+
 def get_symptoms_data(data_dir: Optional[str] = None):
     if data_dir is None:
         data_dir = f'{ROOT_DIR}/data/raw'
@@ -14,8 +15,8 @@ def get_symptoms_data(data_dir: Optional[str] = None):
     df = pd.read_parquet(f'{data_dir}/dart.parquet.gzip')
     df = filter_symptoms_data(df)
     symp = process_symptoms_data(df)
-    demog = df[['mrn', 'date_of_birth', 'female']].drop_duplicates()
-    return symp, demog
+    return symp
+
 
 def process_symptoms_data(df):
     # order by survey date
@@ -35,6 +36,7 @@ def process_symptoms_data(df):
 
     return df
 
+
 def filter_symptoms_data(df):
     # clean column names
     df.columns = df.columns.str.lower()
@@ -42,7 +44,13 @@ def filter_symptoms_data(df):
     for col in ['date_of_birth', 'survey_date']: df[col] = pd.to_datetime(df[col])
     
     # filter out patients who consented out of research
-    df = df.query('research_consent != "N"')
+    # WARNING: Beware of trailing spaces
+    # e.g. >> df['research_consent'].unique()
+    #      array(['Y                    ', '                     ', 'N                    '])
+    df['research_consent'] = df['research_consent'].str.strip()
+    mask = df['research_consent'] != 'N'
+    get_excluded_numbers(df, mask, context=' in which consent to research was declined')
+    df = df[mask]
 
     # filter out patients whose sex is not Male/Female
     mask = df['gender'] != 'Unknown'
