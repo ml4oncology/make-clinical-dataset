@@ -31,6 +31,7 @@ def main():
     opis_file = f'{opis_dir}/OPIS_data_29Nov2022.xlsx'
     rad_file = f'{merged_dir}/patient_radiology_records_merged.csv'
     emergency_department_file = f'{other_epr_dir}/ED/Request_1481_ED_Visits_deathdate.csv'
+    emergency_room_file = f'{other_epr_dir}/ED/Request_1481_ERTriageAssmt.csv'
     death_file = f'{other_epr_dir}/Death Data/EPR_death_pts.csv'
 
     save_dir = f'{ROOT_DIR}/data/raw/'
@@ -57,6 +58,8 @@ def main():
 
     df = pd.read_csv(emergency_department_file)
     df.to_parquet(f'{save_dir}/ED.parquet.gzip', compression='gzip', index=False)
+    df = pd.read_csv(emergency_room_file)
+    df.to_parquet(f'{save_dir}/ER.parquet.gzip', compression='gzip', index=False)
 
     df = pd.read_csv(death_file)
     df.to_parquet(f'{save_dir}/death_dates.parquet.gzip', compression='gzip', index=False)

@@ -67,7 +67,7 @@ def main():
     trt = pd.read_parquet(f'{data_dir}/interim/treatment.parquet.gzip')
     dmg = pd.read_parquet(f'{data_dir}/interim/demographic.parquet.gzip')
     sym = pd.read_parquet(f'{data_dir}/interim/symptom.parquet.gzip')
-    edv = pd.read_parquet(f'{data_dir}/interim/emergency_department_visit.parquet.gzip')
+    erv = pd.read_parquet(f'{data_dir}/interim/emergency_room_visit.parquet.gzip')
     included_drugs = load_included_drugs(data_dir=f'{data_dir}/external')
     with open(config_path) as file:
         cfg = yaml.safe_load(file)
@@ -107,7 +107,7 @@ def main():
 
     logger.info('Combining ED visit features...')
     df = combine_event_to_main_data(
-        main=df, event=edv, main_date_col='treatment_date', event_date_col='adm_date', event_name='ED_visit',
+        main=df, event=erv, main_date_col='treatment_date', event_date_col='event_date', event_name='ED_visit',
         lookback_window=cfg['ed_visit_lookback_window']
     )
     
