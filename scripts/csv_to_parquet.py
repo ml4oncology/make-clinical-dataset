@@ -39,7 +39,7 @@ def main():
 
     mapping = {rad_file: 'radiology', biochem_file: 'biochemistry', hema_file: 'hematology'}
     for filepath, filename in mapping.items():
-        df = pd.read_csv(f'{filepath}.csv')
+        df = pd.read_csv(f'{filepath}')
         df = df.drop(columns=['Unnamed: 0'], errors='ignore')
         if 'proc_code' in df.columns: df['proc_code'] = df['proc_code'].astype(str)
         df.to_parquet(f'{save_dir}/{filename}.parquet.gzip', compression='gzip', index=False)
