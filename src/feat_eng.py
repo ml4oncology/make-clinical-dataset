@@ -47,8 +47,8 @@ def get_perc_ideal_dose_given(df, drug_to_dose_formula_map: dict[str, str]):
         dose_col = f'drug_{drug}_given_dose'
         if dose_col not in df.columns: continue
         ideal_dose = get_ideal_dose(df, drug, dose_formula)
-        perc_ideal_dose_given = df[dose_col] / ideal_dose
-        perc_ideal_dose_given = perc_ideal_dose_given.fillna(0).replace(np.inf, 0)
+        perc_ideal_dose_given = df[dose_col] / ideal_dose # NOTE: 0/0 = np.nan, x/0 = np.inf
+        perc_ideal_dose_given = perc_ideal_dose_given
         result[drug] = perc_ideal_dose_given
     result = pd.DataFrame(result)
     result.columns = '%_ideal_dose_given_' + result.columns

@@ -72,7 +72,7 @@ def process_emergency_room_data(ER: pd.DataFrame) -> pd.DataFrame:
     return ER
 
 
-def emergency_room_worker(partition: pd.DataFrame) -> dict[int]:
+def emergency_room_worker(partition: pd.DataFrame) -> list:
     """Worker to process the ER data"""
     result = []
     for (mrn, event_date), group in partition.groupby(['mrn', 'event_date']):
