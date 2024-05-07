@@ -36,6 +36,7 @@ def process_demographic_data(df):
         .agg({
             # handle conflicting data by taking the most recent entries
             'date_of_birth': 'last',
+            'last_contact_date': 'last',
             'female': 'last',
             # if two diagnoses dates for same cancer site/morphology (e.g. first diagnoses in 2005, cancer returns in 
             # 2013) take the first date (e.g. 2005)
