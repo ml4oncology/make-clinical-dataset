@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import re
 
+from common.src.util import get_excluded_numbers
 from .. import ROOT_DIR
-from ..util import get_excluded_numbers
 
 def get_treatment_data(
     drugs: pd.DataFrame, 

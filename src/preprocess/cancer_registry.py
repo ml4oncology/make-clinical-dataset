@@ -4,9 +4,9 @@ Module to preprocess the cancer registry (cancer patient demographic data)
 from typing import Optional
 import pandas as pd
 
-from .. import ROOT_DIR, logger
-from ..constants import cancer_code_map
-from ..util import get_excluded_numbers
+from common.src.constants import CANCER_CODE_MAP
+from common.src.util import get_excluded_numbers
+from .. import ROOT_DIR
 
 def get_demographic_data(data_dir: Optional[str] = None):
     if data_dir is None:
@@ -77,6 +77,6 @@ def filter_demographic_data(df):
         # e.g. C50 Breast: C501 Central portion, C504 Upper-outer quadrant, etc
         df[col] = df[col].str[:3]
         # map code to english
-        # df[col] = df[col].map(cancer_code_map)
+        # df[col] = df[col].map(CANCER_CODE_MAP)
 
     return df
