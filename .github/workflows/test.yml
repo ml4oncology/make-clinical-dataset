@@ -19,5 +19,5 @@ jobs:
 
     # TODO: fix up the installation requirements
     - run: |
-        pip install tqdm pandas pyarrow yaml pytest pytest-xdist
+        pip install tqdm pandas pyarrow pyyaml pytest pytest-xdist
         pytest -n 2
