@@ -82,7 +82,7 @@ def main():
     elif align_on.endswith('.parquet.gzip') or align_on.endswith('.parquet'):
         df = pd.read_parquet(align_on)
     elif align_on.endswith('.csv'):
-        df = pd.read_csv(align_on)
+        df = pd.read_csv(align_on, parse_dates=[main_date_col])
     else:
         raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
 
