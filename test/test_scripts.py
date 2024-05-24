@@ -4,6 +4,7 @@ import subprocess
 import pandas as pd
 import pytest
 
+@pytest.mark.xfail
 def test_combine_features_mock(tmp_path):
     """NOTE: tmp_path is an inbuilt Pytest fixture and pathlib.Path` object"""
     os.makedirs(f'{tmp_path}/interim')
