@@ -268,7 +268,7 @@ def clean_regimen_name(regimen: str) -> tuple[str, str]:
     
     if 'W' in regimen:
         regimen = regimen.replace('W', '')
-        note += f'Weekly; '
+        note += 'Weekly; '
     
     # clean up punctuation marks
     for chars in ['()', '/', ';', ' ']:
