@@ -62,6 +62,13 @@ def main():
     data_dir = args.data_dir
     config_path = args.config_path
 
+    if align_on != "treatment-dates":
+        bad_cols = ["survey_date", "obs_date", "event_date", "treatment_date"]
+        if main_date_col in bad_cols:
+            raise ValueError(
+                f"If not --align-on treatment-dates, the --date-column can not be any of {bad_cols}"
+            )
+
     if not os.path.exists(output_dir): os.makedirs(output_dir)
     lab = pd.read_parquet(f'{data_dir}/interim/lab.parquet.gzip')
     trt = pd.read_parquet(f'{data_dir}/interim/treatment.parquet.gzip')
