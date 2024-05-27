@@ -95,7 +95,9 @@ def main():
 
     if align_on != 'treatment-dates':
         logger.info('Combining treatment features...')
-        df = combine_treatment_to_main_data(df, trt, main_date_col=main_date_col, time_window=(-7,0))
+        df = combine_treatment_to_main_data(
+            df, trt, main_date_col=main_date_col, time_window=(-cfg['trt_lookback_window'],0)
+        )
     
     logger.info('Combining demographic features...')
     df = combine_demographic_to_main_data(main=df, demographic=dmg, main_date_col=main_date_col)
