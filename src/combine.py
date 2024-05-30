@@ -11,7 +11,6 @@ from common.src.util import get_excluded_numbers, split_and_parallelize
 
 from .feat_eng import ( 
     get_days_since_last_event, 
-    get_line_of_therapy, 
     get_perc_ideal_dose_given,
     get_visit_month_feature,
     get_years_diff, 
@@ -167,7 +166,6 @@ def event_feature_extractor(
 
 def add_engineered_features(df, date_col: str = 'treatment_date') -> pd.DataFrame:
     df = get_visit_month_feature(df, col=date_col)
-    df['line_of_therapy'] = df.groupby('mrn', group_keys=False).apply(get_line_of_therapy)
     df['days_since_starting_treatment'] = (df[date_col] - df['first_treatment_date']).dt.days
     get_days_since_last_treatment = partial(
         get_days_since_last_event, main_date_col=date_col, event_date_col='treatment_date'

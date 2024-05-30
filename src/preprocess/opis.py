@@ -9,6 +9,7 @@ import re
 
 from common.src.util import get_excluded_numbers
 from .. import ROOT_DIR
+from ..feat_eng import get_line_of_therapy
 
 def get_treatment_data(
     drugs: pd.DataFrame, 
@@ -42,6 +43,9 @@ def process_treatment_data(df) -> pd.DataFrame:
 
     # forward fill height and weight
     for col in ['height', 'weight']: df[col] = df.groupby('mrn')[col].ffill()
+
+    # compute line of therapy
+    df['line_of_therapy'] = df.groupby('mrn', group_keys=False).apply(get_line_of_therapy)
 
     return df
 
