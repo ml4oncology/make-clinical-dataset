@@ -62,6 +62,13 @@ def main():
     data_dir = args.data_dir
     config_path = args.config_path
 
+    if align_on != "treatment-dates":
+        bad_cols = ["survey_date", "obs_date", "event_date", "treatment_date"]
+        if main_date_col in bad_cols:
+            raise ValueError(
+                f"If not --align-on treatment-dates, the --date-column can not be any of {bad_cols}"
+            )
+
     if not os.path.exists(output_dir): os.makedirs(output_dir)
     lab = pd.read_parquet(f'{data_dir}/interim/lab.parquet.gzip')
     trt = pd.read_parquet(f'{data_dir}/interim/treatment.parquet.gzip')
@@ -82,13 +89,15 @@ def main():
     elif align_on.endswith('.parquet.gzip') or align_on.endswith('.parquet'):
         df = pd.read_parquet(align_on)
     elif align_on.endswith('.csv'):
-        df = pd.read_csv(align_on)
+        df = pd.read_csv(align_on, parse_dates=[main_date_col])
     else:
         raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
 
     if align_on != 'treatment-dates':
         logger.info('Combining treatment features...')
-        df = combine_treatment_to_main_data(df, trt, main_date_col=main_date_col, time_window=(-7,0))
+        df = combine_treatment_to_main_data(
+            df, trt, main_date_col=main_date_col, time_window=(-cfg['trt_lookback_window'],0)
+        )
     
     logger.info('Combining demographic features...')
     df = combine_demographic_to_main_data(main=df, demographic=dmg, main_date_col=main_date_col)

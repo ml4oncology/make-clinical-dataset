@@ -1,12 +1,13 @@
 """
 Module to preprocess the cancer registry (cancer patient demographic data)
+and EPR death dates
 """
 from typing import Optional
 import pandas as pd
 
-from .. import ROOT_DIR, logger
-from ..constants import cancer_code_map
-from ..util import get_excluded_numbers
+from common.src.constants import CANCER_CODE_MAP
+from common.src.util import get_excluded_numbers
+from .. import ROOT_DIR
 
 def get_demographic_data(data_dir: Optional[str] = None):
     if data_dir is None:
@@ -15,6 +16,9 @@ def get_demographic_data(data_dir: Optional[str] = None):
     df = pd.read_parquet(f'{data_dir}/cancer_registry.parquet.gzip')
     df = filter_demographic_data(df)
     df = process_demographic_data(df)
+
+    ddates = pd.read_parquet(f'{data_dir}/death_dates.parquet.gzip')
+    df = update_death_dates(df, ddates)
     return df
 
 def process_demographic_data(df):
@@ -36,6 +40,7 @@ def process_demographic_data(df):
         .agg({
             # handle conflicting data by taking the most recent entries
             'date_of_birth': 'last',
+            'date_of_death': 'last',
             'last_contact_date': 'last',
             'female': 'last',
             # if two diagnoses dates for same cancer site/morphology (e.g. first diagnoses in 2005, cancer returns in 
@@ -78,6 +83,22 @@ def filter_demographic_data(df):
         # e.g. C50 Breast: C501 Central portion, C504 Upper-outer quadrant, etc
         df[col] = df[col].str[:3]
         # map code to english
-        # df[col] = df[col].map(cancer_code_map)
+        # df[col] = df[col].map(CANCER_CODE_MAP)
 
+    return df
+
+
+def update_death_dates(df: pd.DataFrame, ddates: pd.DataFrame) -> pd.DataFrame:
+    ddates.rename(columns={'MEDICAL_RECORD_NUMBER': 'mrn', 'DATE_OF_DEATH': 'date_of_death'}, inplace=True)
+    ddates['date_of_death'] = pd.to_datetime(ddates['date_of_death'], format='%d%b%Y:%H:%M:%S')
+    df['date_of_death2'] = df['mrn'].map(dict(ddates.to_numpy()))
+
+    # remove errornous entry
+    mask = df['date_of_death2'] == df['date_of_birth']
+    df.loc[mask, 'date_of_death2'] = pd.NaT
+
+    # take the earlier death date
+    df['date_of_death'] = df[['date_of_death', 'date_of_death2']].min(axis=1)
+    
+    del df['date_of_death2']
     return df

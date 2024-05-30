@@ -5,8 +5,8 @@ from typing import Optional
 
 import pandas as pd
 
+from common.src.util import get_excluded_numbers, split_and_parallelize
 from .. import ROOT_DIR, logger
-from ..util import get_excluded_numbers, split_and_parallelize
 
 ###############################################################################
 # ER (Emergency Room - NEW PULL)
