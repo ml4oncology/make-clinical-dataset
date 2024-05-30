@@ -22,6 +22,8 @@ def get_treatment_data(
     df = pd.read_parquet(f'{data_dir}/opis.parquet.gzip')
     df = filter_treatment_data(df, drugs, regimens)
     df = process_treatment_data(df)
+    # fix height values
+    df=df.groupby('mrn').apply(lambda group: group.assign(height=group['height'].max())).reset_index(drop=True)
     return df
     
 
