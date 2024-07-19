@@ -11,15 +11,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
         python-version: 3.11
-        # TODO: figure out why submodules can't be accessed in Github Actions
-        submodules: true
 
-    # TODO: fix up the installation requirements
-    - run: |
-        pip install tqdm pandas pyarrow pyyaml pytest pytest-xdist
-        pytest -n 2
+    - name: Install dependencies
+      run: |
+        pip install -e .
+        # pip install tqdm pandas pyarrow pyyaml pytest pytest-xdist
+
+    - name: Run test
+      run: pytest -n 2
