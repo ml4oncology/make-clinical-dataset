@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "make_clinical_dataset"
+description = "Generate clinical dataset from patients treated at Princess Margaret hospital"
+version = "0.1.0"
+authors = [
+    { name = "Kevin He", email = "Kevin.He@uhn.ca" }
+]
+dependencies = [
+    "ml_common@git+https://github.com/ml4oncology/ml-common"
+]
+
+[tool.setuptools]
+package-dir = {"make_clinical_dataset" = "src"}
