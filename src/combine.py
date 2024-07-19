@@ -6,8 +6,8 @@ from functools import partial
 from tqdm import tqdm
 import pandas as pd
 
-from common.src.anchor import combine_feat_to_main_data
-from common.src.util import get_excluded_numbers, split_and_parallelize
+from ml_common.anchor import combine_feat_to_main_data
+from ml_common.util import get_excluded_numbers, split_and_parallelize
 
 from .feat_eng import ( 
     get_days_since_last_event, 

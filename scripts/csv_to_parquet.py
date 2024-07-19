@@ -7,13 +7,10 @@ patient_radiology_records_merged: 1.7GB -> 129MB
 patient_biochemistry_merged: 4.9GB -> 229MB
 patient_hematology_merged: 2.6GB -> 83MB
 """
-from pathlib import Path
 import glob
 import os
 
 import pandas as pd
-
-ROOT_DIR = Path(__file__).parent.parent.as_posix()
 
 def main():
     data_root_dir = '/cluster/projects/gliugroup'
@@ -34,7 +31,7 @@ def main():
     emergency_room_file = f'{other_epr_dir}/ED/Request_1481_ERTriageAssmt.csv'
     death_file = f'{other_epr_dir}/Death Data/EPR_death_pts.csv'
 
-    save_dir = f'{ROOT_DIR}/data/raw/'
+    save_dir = './data/raw/'
     if not os.path.exists(save_dir): os.makedirs(save_dir)
 
     mapping = {rad_file: 'radiology', biochem_file: 'biochemistry', hema_file: 'hematology'}
