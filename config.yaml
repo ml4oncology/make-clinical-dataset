@@ -1,5 +1,5 @@
 # The lookback window prior to visit date for each feature category. Records taken within this time window are valid.
-trt_lookback_window: 28 # days
-lab_lookback_window: 5 # days
-symp_lookback_window: 30 # days
+trt_lookback_window: [-28, 0] # days
+lab_lookback_window: [-5, 0] # days
+symp_lookback_window: [-30, 0] # days
 ed_visit_lookback_window: 5 # years

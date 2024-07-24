@@ -92,7 +92,7 @@ def main():
     if align_on != 'treatment-dates':
         logger.info('Combining treatment features...')
         df = combine_treatment_to_main_data(
-            df, trt, main_date_col=main_date_col, time_window=(-cfg['trt_lookback_window'],0)
+            df, trt, main_date_col=main_date_col, time_window=cfg['trt_lookback_window']
         )
     
     logger.info('Combining demographic features...')
@@ -101,13 +101,13 @@ def main():
     logger.info('Combining symptom features...')
     df = combine_feat_to_main_data(
         main=df, feat=sym, main_date_col=main_date_col, feat_date_col='survey_date', 
-        time_window=(-cfg['symp_lookback_window'],0)
+        time_window=cfg['symp_lookback_window']
     )
     
     logger.info('Combining lab features...')
     df = combine_feat_to_main_data(
         main=df, feat=lab, main_date_col=main_date_col, feat_date_col='obs_date', 
-        time_window=(-cfg['lab_lookback_window'],0)
+        time_window=cfg['lab_lookback_window']
     )
 
     logger.info('Combining ED visit features...')
