@@ -5,8 +5,8 @@ and EPR death dates
 from typing import Optional
 import pandas as pd
 
-from common.src.constants import CANCER_CODE_MAP
-from common.src.util import get_excluded_numbers
+from ml_common.constants import CANCER_CODE_MAP
+from ml_common.util import get_excluded_numbers
 from .. import ROOT_DIR
 
 def get_demographic_data(data_dir: Optional[str] = None):

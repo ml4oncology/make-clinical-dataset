@@ -2,18 +2,14 @@
 Script to combine the features into one unified dataset
 """
 from itertools import product
-from pathlib import Path
 import argparse
 import os
-import sys
-ROOT_DIR = Path(__file__).parent.parent.as_posix()
-sys.path.append(ROOT_DIR)
 
 import pandas as pd
 import yaml
 
-from src import logger
-from src.combine import (
+from make_clinical_dataset import logger
+from make_clinical_dataset.combine import (
     add_engineered_features,
     combine_demographic_to_main_data, 
     combine_event_to_main_data,
@@ -21,7 +17,7 @@ from src.combine import (
     combine_perc_dose_to_main_data,
     combine_treatment_to_main_data
 )
-from src.util import load_included_drugs
+from make_clinical_dataset.util import load_included_drugs
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -47,9 +43,9 @@ def parse_args():
         default='treatment_centered_clinical_dataset', 
         help='Name of the output file, do not include file extension'
     )
-    parser.add_argument('--output-dir', type=str, default=f'{ROOT_DIR}/data/processed')
-    parser.add_argument('--data-dir', type=str, default=f'{ROOT_DIR}/data')
-    parser.add_argument('--config-path', type=str, default=f'{ROOT_DIR}/config.yaml')
+    parser.add_argument('--output-dir', type=str, default='./data/processed')
+    parser.add_argument('--data-dir', type=str, default='./data')
+    parser.add_argument('--config-path', type=str, default='./config.yaml')
     args = parser.parse_args()
     return args
 
@@ -96,7 +92,7 @@ def main():
     if align_on != 'treatment-dates':
         logger.info('Combining treatment features...')
         df = combine_treatment_to_main_data(
-            df, trt, main_date_col=main_date_col, time_window=(-cfg['trt_lookback_window'],0)
+            df, trt, main_date_col=main_date_col, time_window=cfg['trt_lookback_window']
         )
     
     logger.info('Combining demographic features...')
@@ -105,13 +101,13 @@ def main():
     logger.info('Combining symptom features...')
     df = combine_feat_to_main_data(
         main=df, feat=sym, main_date_col=main_date_col, feat_date_col='survey_date', 
-        time_window=(-cfg['symp_lookback_window'],0)
+        time_window=cfg['symp_lookback_window']
     )
     
     logger.info('Combining lab features...')
     df = combine_feat_to_main_data(
         main=df, feat=lab, main_date_col=main_date_col, feat_date_col='obs_date', 
-        time_window=(-cfg['lab_lookback_window'],0)
+        time_window=cfg['lab_lookback_window']
     )
 
     logger.info('Combining ED visit features...')

@@ -5,7 +5,7 @@ from typing import Optional
 
 import pandas as pd
 
-from common.src.util import get_excluded_numbers, split_and_parallelize
+from ml_common.util import get_excluded_numbers, split_and_parallelize
 from .. import ROOT_DIR, logger
 
 ###############################################################################

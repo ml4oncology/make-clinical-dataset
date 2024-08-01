@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import re
 
-from common.src.util import get_excluded_numbers
+from ml_common.util import get_excluded_numbers
 from .. import ROOT_DIR
 from ..feat_eng import get_line_of_therapy
 

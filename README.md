@@ -9,8 +9,8 @@ The external data is located in the Google Drive folder [ml4o/projects/aim2reduc
 
 # Getting Started
 ```bash
-git clone --recurse-submodules https://github.com/ml4oncology/make-clinical-dataset
-pip install -r requirements.txt
+git clone https://github.com/ml4oncology/make-clinical-dataset
+pip install -e .
 ```
 
 # Instructions

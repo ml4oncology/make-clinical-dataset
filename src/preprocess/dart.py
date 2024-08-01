@@ -4,7 +4,7 @@ Module to preprocess DART (symptom data)
 from typing import Optional
 import pandas as pd
 
-from common.src.util import get_excluded_numbers
+from ml_common.util import get_excluded_numbers
 from .. import ROOT_DIR
 
 def get_symptoms_data(data_dir: Optional[str] = None):
