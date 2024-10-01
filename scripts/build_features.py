@@ -7,7 +7,7 @@ import os
 import pandas as pd
 
 from make_clinical_dataset.preprocess.cancer_registry import get_demographic_data
-from make_clinical_dataset.preprocess.clinic_notes import get_clinic_notes_data
+from make_clinical_dataset.preprocess.clinic import get_clinical_notes_data
 from make_clinical_dataset.preprocess.dart import get_symptoms_data
 from make_clinical_dataset.preprocess.emergency import get_emergency_room_data
 from make_clinical_dataset.preprocess.lab import get_lab_data
@@ -55,9 +55,9 @@ def main():
     reports = get_radiology_data(mrn_map, data_dir=f'{data_dir}/raw')
     reports.to_parquet(f'{data_dir}/interim/reports.parquet.gzip', compression='gzip', index=False)
 
-    # clinic notes
-    clinic_notes = get_clinic_notes_data(data_dir=f'{data_dir}/raw')
-    clinic_notes.to_parquet(f'{data_dir}/data/interim/clinic_notes.parquet.gzip', compression='gzip', index=False)
+    # clinical notes
+    clinical_notes = get_clinical_notes_data(data_dir=f'{data_dir}/raw')
+    clinical_notes.to_parquet(f'{data_dir}/data/interim/clinical_notes.parquet.gzip', compression='gzip', index=False)
     
 if __name__ == '__main__':
     main()
