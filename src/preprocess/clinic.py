@@ -38,7 +38,7 @@ def filter_notes_data(df: pd.DataFrame) -> pd.DataFrame:
     df["clinic_date"] = df["clinic_date"].dt.tz_localize(None)
     df["last_updated_date"] = df["last_updated_date"].dt.tz_localize(None)
 
-    # only include relevant clinical df
+    # only include relevant clinical notes
     proc_names = ["Clinic Note", "Clinic Note (Non-dictated)", "Letter", "History & Physical Note", "Consultation Note"]
     df = df[df["proc_name"].isin(proc_names)]
 
