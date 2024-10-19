@@ -6,17 +6,17 @@ from typing import Optional
 import pandas as pd
 
 from .. import ROOT_DIR
-from ..constants import obs_map
+from ..constants import OBS_MAP
 
 def get_lab_data(mrn_map: dict[str, int], data_dir: Optional[str] = None):
     if data_dir is None:
         data_dir = f'{ROOT_DIR}/data/raw'
 
     hema = pd.read_parquet(f'{data_dir}/hematology.parquet.gzip')
-    hema = filter_lab_data(hema, obs_name_map=obs_map['Hematology'])
+    hema = filter_lab_data(hema, obs_name_map=OBS_MAP['Hematology'])
 
     biochem = pd.read_parquet(f'{data_dir}/biochemistry.parquet.gzip')
-    biochem = filter_lab_data(biochem, obs_name_map=obs_map['Biochemistry'])
+    biochem = filter_lab_data(biochem, obs_name_map=OBS_MAP['Biochemistry'])
 
     lab = pd.concat([hema, biochem])
     lab = process_lab_data(lab)

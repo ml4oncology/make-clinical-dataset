@@ -1,5 +1,5 @@
 # lab observations
-obs_map = {
+OBS_MAP = {
     'Hematology': {
         'Basophils': 'basophil',
         'Basos': 'basophil',
