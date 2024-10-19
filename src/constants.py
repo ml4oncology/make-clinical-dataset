@@ -29,14 +29,20 @@ OBS_MAP = {
 
         'INR': 'prothrombin_time_international_normalized_ratio',
         'aPTT': 'activated_partial_thromboplastin_time',
+
+        'Mean Platelet Volume': 'mean_platelet_volume',
     },
     'Biochemistry': {
         'Albumin': 'albumin',
+        'Alkaline Phosphatase': 'alkaline_phosphatase',
         'Bicarbonate': 'bicarbonate',
+        'Bilirubin,Total': 'total_bilirubin',
         'Carcinoembryonic Antigen': 'carcinoembryonic_antigen',
         'Chloride': 'chloride',
         'Creatinine': 'creatinine',
         'Glucose': 'glucose',
+        'Glucose, Random': 'glucose',
+        'Lactate Dehydrogenase': 'lactate_dehydrogenase',
         'Magnesium': 'magnesium',
         'Phosphate': 'phosphate',
         'Potassium': 'potassium',
@@ -49,5 +55,6 @@ OBS_MAP = {
         'ALP': 'alkaline_phosphatase',
         'CA 19-9': 'carbohydrate_antigen_19-9',
         'LDH': 'lactate_dehydrogenase',
+        'RDW-CV': 'red_cell_distribution_width',
     }
 }
