@@ -104,6 +104,7 @@ def combine_event_to_main_data(
     event_date_col: str, 
     event_name: str,
     lookback_window: int = 5,
+    parallelize: bool = True,
     **kwargs
 ) -> pd.DataFrame:
     """Combine features extracted from event data (emergency department visits, hospitalization, etc) to the main 
@@ -115,14 +116,17 @@ def combine_event_to_main_data(
         lookback_window: The lookback window in terms of number of years from treatment date to extract event features
     """
     mask = main['mrn'].isin(event['mrn'])
-    worker = partial(
-        event_feature_extractor, 
-        main_date_col=main_date_col, 
-        event_date_col=event_date_col, 
-        lookback_window=lookback_window, 
-        **kwargs
-    )
-    result = split_and_parallelize((main[mask], event), worker)
+    if parallelize:
+        worker = partial(
+            event_feature_extractor, 
+            main_date_col=main_date_col, 
+            event_date_col=event_date_col, 
+            lookback_window=lookback_window, 
+            **kwargs
+        )
+        result = split_and_parallelize((main[mask], event), worker)
+    else:
+        result = event_feature_extractor((main[mask], event), main_date_col, event_date_col, lookback_window, **kwargs)
     cols = ['index', f'num_prior_{event_name}s_within_{lookback_window}_years', f'days_since_prev_{event_name}']
     result = pd.DataFrame(result, columns=cols).set_index('index')
     df = main.join(result)
