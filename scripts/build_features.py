@@ -13,6 +13,7 @@ from make_clinical_dataset.preprocess.emergency import get_emergency_room_data
 from make_clinical_dataset.preprocess.lab import get_lab_data
 from make_clinical_dataset.preprocess.opis import get_treatment_data
 from make_clinical_dataset.preprocess.radiology import get_radiology_data
+from make_clinical_dataset.preprocess.recist import get_recist_data
 from make_clinical_dataset.util import load_included_drugs, load_included_regimens
 
 def parse_args():
@@ -58,6 +59,10 @@ def main():
     # clinical notes
     clinical_notes = get_clinical_notes_data(data_dir=f'{data_dir}/raw')
     clinical_notes.to_parquet(f'{data_dir}/data/interim/clinical_notes.parquet.gzip', compression='gzip', index=False)
+
+    # tumor response - COMPASS trial
+    recist = get_recist_data(data_dir=f'{data_dir}/external')
+    recist.to_parquet(f'{data_dir}/interim/recist.parquet.gzip', compression='gzip', index=False)
     
 if __name__ == '__main__':
     main()
