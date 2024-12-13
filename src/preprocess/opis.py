@@ -331,20 +331,22 @@ def clean_drug_name(drug: str) -> tuple[str, str]:
 ###############################################################################
 # Mergers
 ###############################################################################
-def merge_same_day_treatments(df, dosage: pd.DataFrame):
+def merge_same_day_treatments(df, dosage: Optional[pd.DataFrame] = None):
     """
     Collapse multiples rows with the same treatment day into one
 
     Essential for aggregating the different drugs administered on the same day
     """
-    format_regimens = lambda regs: ' && '.join(sorted(set(regs)))
+    if dosage is None:
+        dosage = pd.DataFrame()
+
     df = (
         df
         .groupby(['mrn', 'treatment_date'])
         .agg({
             # handle conflicting data by 
             # 1. join them togehter
-            'regimen': format_regimens,
+            'regimen': lambda regs: ' && '.join(sorted(set(regs))),
             # 2. take the mean 
             'height': 'mean',
             'weight': 'mean',
