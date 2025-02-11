@@ -69,6 +69,8 @@ def filter_treatment_data(df, drugs: pd.DataFrame, regimens: pd.DataFrame) -> pd
     df = filter_drugs(df, drugs)
     # df = clean_regimens(df)
     # df = clean_drugs(df)
+    df['orig_drug_name'] = df['drug_name'].copy()
+    df['drug_name'] = df['drug_name'].apply(lambda drug: clean_drug_name(drug)[0])
 
     # remove one-off duplicate rows (all values are same except for one, most likely due to human error)
     for col in ['first_treatment_date', 'cycle_number']: 
@@ -321,6 +323,7 @@ def clean_drug_name(drug: str) -> tuple[str, str]:
             note += f'{substr}; '
             
     drug = drug.replace('PACLITAXEL', 'PACL')
+    drug = drug.replace('NANOLIPOSOMAL', 'LIPOSOMAL')
             
     # clean up punctuation marks
     drug = drug.replace('()', '') # remove empty brackets
