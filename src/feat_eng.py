@@ -77,4 +77,4 @@ def get_ideal_dose(df, drug: str, dose_formula: str):
 # Special Formulas
 ###############################################################################
 def get_creatinine_clearance(df):
-    return (140 - df['age']) * df['weight'] * 1.23 * df['female'].replace({True: 0.85, False: 1}) / df['creatinine']
+    return (140 - df['age']) * df['weight'] * 1.23 * df['female'].map({True: 0.85, False: 1}) / df['creatinine']

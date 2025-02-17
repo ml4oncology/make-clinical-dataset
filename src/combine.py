@@ -3,11 +3,10 @@ Module to combine features
 """
 from functools import partial
 
-from tqdm import tqdm
 import pandas as pd
 
-from ml_common.anchor import combine_feat_to_main_data
-from ml_common.util import get_excluded_numbers, split_and_parallelize
+from ml_common.anchor import combine_meas_to_main_data
+from ml_common.util import get_excluded_numbers
 
 from .feat_eng import ( 
     get_days_since_last_event, 
@@ -47,14 +46,14 @@ def combine_demographic_to_main_data(
     # TODO: find out why df[cols] = df[cols] < df[visit_date_col] is throwing errors
     for col in cols: df[col] = df[col] < df[main_date_col]
 
-    return df
+    return df.copy()
 
 
 def combine_treatment_to_main_data(
     main: pd.DataFrame, 
     treatment: pd.DataFrame, 
     main_date_col: str, 
-    **kwargs
+    time_window: tuple[int, int] = (-28,0),
 ) -> pd.DataFrame:
     """Combine treatment information to the main data
     For drug dosage features, add up the treatment drug dosages of the past x days for each drug
@@ -68,9 +67,15 @@ def combine_treatment_to_main_data(
     treatment_drugs = treatment[drug_cols + ['mrn', 'treatment_date']] # treatment drug dosage features
     treatment_feats = treatment.drop(columns=drug_cols) # other treatment features
     treatment_feats['trt_date'] = treatment_feats['treatment_date'] # include treatment date as a feature
-    df = combine_feat_to_main_data(main, treatment_feats, main_date_col, 'treatment_date', **kwargs)
-    df = combine_feat_to_main_data(df, treatment_drugs, main_date_col, 'treatment_date', keep='sum', **kwargs)
-    df = df.rename(columns={'trt_date': 'treatment_date'})
+    df = combine_meas_to_main_data(
+        main, treatment_feats, main_date_col, 'treatment_date', stats=['last'], time_window=time_window, 
+        include_meas_date=True
+    )
+    df = combine_meas_to_main_data(
+        df, treatment_drugs, main_date_col, 'treatment_date', stats=['sum'], time_window=time_window, 
+        include_meas_date=False
+    )
+    df.columns = df.columns.str.replace('_LAST', '').str.replace('_SUM', '')
     return df
 
 
@@ -105,7 +110,6 @@ def combine_event_to_main_data(
     event_name: str,
     lookback_window: int = 5,
     parallelize: bool = True,
-    **kwargs
 ) -> pd.DataFrame:
     """Combine features extracted from event data (emergency department visits, hospitalization, etc) to the main 
     dataset
@@ -115,57 +119,27 @@ def combine_event_to_main_data(
         event_date_col: The column name of the event date
         lookback_window: The lookback window in terms of number of years from treatment date to extract event features
     """
-    mask = main['mrn'].isin(event['mrn'])
-    if parallelize:
-        worker = partial(
-            event_feature_extractor, 
-            main_date_col=main_date_col, 
-            event_date_col=event_date_col, 
-            lookback_window=lookback_window, 
-            **kwargs
-        )
-        result = split_and_parallelize((main[mask], event), worker)
-    else:
-        result = event_feature_extractor((main[mask], event), main_date_col, event_date_col, lookback_window, **kwargs)
-    cols = ['index', f'num_prior_{event_name}s_within_{lookback_window}_years', f'days_since_prev_{event_name}']
-    result = pd.DataFrame(result, columns=cols).set_index('index')
-    df = main.join(result)
+    # Compute features
+    stat_func = partial(_event_stat_func, event_date_col=event_date_col)
+    df = combine_meas_to_main_data(
+        main=main, meas=event, main_date_col=main_date_col, meas_date_col=event_date_col, parallelize=parallelize,
+        time_window=(-lookback_window * 365, 0), stat_func=stat_func, include_meas_date=False
+    )
+
+    # 1. number of days since closest event prior to main visit date
+    df[f'days_since_prev_{event_name}'] = (df[main_date_col] - df.pop('prev_event_date')).dt.days
+
+    # 2. number of events within the lookback window 
+    df[f'num_prior_{event_name}s_within_{lookback_window}_years'] = df.pop('num_prior_events')
+
     return df
 
 
-def event_feature_extractor(
-    partition, 
-    main_date_col: str,
-    event_date_col: str,
-    lookback_window: int = 5,
-) -> list:
-    """Extract features from the event data, namely
-    1. Number of days since the most recent event
-    2. Number of prior events in the past X years
-
-    Args:
-        main_date_col: The column name of the main visit date
-        event_date_col: The column name of the event date
-        lookback_window: The lookback window in terms of number of years from treatment date to extract event features
-    """
-    main_df, event_df = partition
-    result = []
-    for mrn, main_group in tqdm(main_df.groupby('mrn')):
-        event_group = event_df.query('mrn == @mrn')
-        event_dates = event_group[event_date_col]
-        
-        for idx, date in main_group[main_date_col].items():
-            # get feature
-            # 1. number of days since closest event prior to main visit date
-            # 2. number of events within the lookback window 
-            earliest_date = date - pd.Timedelta(days=lookback_window*365)
-            mask = event_dates.between(earliest_date, date, inclusive='left')
-            if mask.any():
-                N_prior_events = mask.sum()
-                # assert(sum(adm_dates == adm_dates[mask].max()) == 1)
-                N_days = (date - event_dates[mask].iloc[-1]).days
-                result.append([idx, N_prior_events, N_days])
-    return result
+def _event_stat_func(df, mask, event_date_col):
+    return {
+        'num_prior_events': mask.sum(),
+        'prev_event_date': df.loc[mask, event_date_col].iloc[-1]
+    }
 
 
 def add_engineered_features(df, date_col: str = 'treatment_date') -> pd.DataFrame:
