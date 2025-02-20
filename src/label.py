@@ -1,76 +1,149 @@
 """
-Module to extract symptom deterioration labels
+Module to extract labels
 """
-
-from typing import Optional
-
-from functools import partial
-
 import pandas as pd
 
-from ml_common.anchor import measurement_stat_extractor
+from .constants import CTCAE_CONSTANTS, MAP_CTCAE_LAB
+
+from ml_common.anchor import combine_meas_to_main_data, merge_closest_measurements
 from ml_common.constants import SYMP_COLS
-from ml_common.util import split_and_parallelize
+from ml_common.filter import keep_only_one_per_week
 
 ###############################################################################
-# Events
+# Emergency Department Visits
 ###############################################################################
-def get_event_labels(df: pd.DataFrame, event: pd.DataFrame):
-    df = df.sort_values(by='assessment_date')
-    event = event.sort_values(by='event_date')
+def get_ED_labels(
+    df: pd.DataFrame, 
+    event: pd.DataFrame, 
+    lookahead_window: int | list[int] = 30
+) -> pd.DataFrame:
+    if isinstance(lookahead_window, int):
+        lookahead_window = [lookahead_window]
 
-    # merge the closest event row after the assessment date, matched on patients
-    df = pd.merge_asof(
-        df, event, left_on='assessment_date', right_on='event_date', by='mrn', direction='forward', 
-        allow_exact_matches=False
+    event['ED_date'] = event['event_date']
+    df = merge_closest_measurements(
+        df, event, main_date_col='assessment_date', meas_date_col='event_date', 
+        direction='forward', time_window=(1, max(lookahead_window))
     )
+    df = df.rename(columns={'ED_date': 'target_ED_date'})
+
+    for days in lookahead_window:
+        df[f'target_ED_{days}d'] = df['target_ED_date'] < df['assessment_date'] + pd.Timedelta(days=days)  
 
     return df.sort_values(by=['mrn', 'assessment_date'])
 
 
 ###############################################################################
-# Symptoms
+# Symptom Deterioration
 ###############################################################################
-def convert_to_binary_symptom_labels(
-    df: pd.DataFrame, scoring_map: Optional[dict[str, int]] = None
+def get_symptom_labels(
+    main_df: pd.DataFrame, 
+    symp_df: pd.DataFrame, 
+    lookahead_window: int = 30,
+    scoring_map: dict[str, int] | None = None
 ) -> pd.DataFrame:
-    """Convert label to 1 (positive), 0 (negative), or -1 (missing/exclude)
+    """Extract labels for symptom deterioration
 
-    Label is positive if symptom deteriorates (score increases) by X points
+    Label is positive if symptom deteriorates (score increases) by X points within the lookahead window
+
+    Args:
+        symp_df: The processed symptom data from https://github.com/ml4oncology/make-clinical-dataset
+        lookahead_window: The lookahead window in terms of days after visit date in which labels can be extracted
     """
     if scoring_map is None:
         scoring_map = {col: 3 for col in SYMP_COLS}
 
+    # get the maximum symptom score within lookahead window
+    df = combine_meas_to_main_data(
+        main_df, symp_df, 'assessment_date', 'survey_date', time_window=(1, lookahead_window), stats=['max'], 
+    )
+    df.columns = [f'target_{col.lower()}' if "_MAX" in col else col for col in df.columns]
+
+    # compute binary labels: 1 (positive), 0 (negative), or -1 (missing/exclude)
     for symp, pt in scoring_map.items():
         discrete_targ_col = f"target_{symp}_{pt}pt_change"
-        change = df[f"target_{symp}"] - df[symp]
+        change = df[f"target_{symp}_max"] - df[symp]
         missing_mask = change.isnull()
         df[discrete_targ_col] = (change >= pt).astype(int)
         df.loc[missing_mask, discrete_targ_col] = -1
 
         # If baseline score is alrady high, we exclude them
         df.loc[df[symp] > 10 - pt, discrete_targ_col] = -1
+
     return df
 
 
-def get_symptom_labels(
-    main_df: pd.DataFrame, 
-    symp_df: pd.DataFrame, 
+###############################################################################
+# Abnormal Lab Findings / CTCAE (Common Terminology Criteria for Adverse Events)
+###############################################################################
+def get_CTCAE_labels(
+    df_main: pd.DataFrame,
+    df_trt: pd.DataFrame,
+    df_lab: pd.DataFrame,
     lookahead_window: int = 30
 ) -> pd.DataFrame:
-    """Extract labels for symptom deterioration within the next X days after visit date
-
-    Args:
-        symp_df: The processed symptom data from https://github.com/ml4oncology/make-clinical-dataset
-        lookahead_window: The lookahead window in terms of days after visit date in which labels can be extracted
+    """Compute CTCAE labels for each record using treatment and lab data.
+    
+    This function first computes lookahead lab values (prior to the next treatment session within the lookahead window)
+    and applies the threshold functions to generate CTCAE grade labels.
     """
-    mask = main_df['mrn'].isin(symp_df['mrn'])
-    worker = partial(
-        measurement_stat_extractor, main_date_col='assessment_date', meas_date_col='survey_date', 
-        time_window=(1, lookahead_window), stats=['max']
+    # Get the next treatment session for each lab date
+    df_trt = keep_only_one_per_week(df_trt, date_col='treatment_date')
+    df_lab = merge_closest_measurements(
+        main=df_lab, meas=df_trt[['mrn', 'treatment_date']], main_date_col='obs_date', meas_date_col='treatment_date', 
+        direction='forward', time_window=(0, lookahead_window), merge_individually=False
     )
-    result = split_and_parallelize((main_df[mask], symp_df), worker)
-    result = pd.DataFrame(result).set_index('index')
-    result.columns = 'target_' + result.columns.str.replace('_MAX', '')
-    main_df = main_df.join(result)
-    return main_df
+    df_lab = df_lab.rename(columns={'treatment_date': 'next_treatment_date'})
+    df_lab['next_treatment_date'] = df_lab['next_treatment_date'].fillna(pd.Timestamp.max)
+
+    # Get the minimum / maximum lab test values within lookahead window, prior to next treatment session
+    df = combine_meas_to_main_data(
+        main=df_main, meas=df_lab, main_date_col='assessment_date', meas_date_col='obs_date', 
+        time_window=(1, lookahead_window), stat_func=_CTCAE_stat_func, include_meas_date=False,
+    )
+    df.columns = [f'target_{col.lower()}' if "_MIN" in col or "_MAX" in col else col for col in df.columns]
+
+    # Apply threshold functions for each grade
+    for ctcae, constants in CTCAE_CONSTANTS.items():
+        lab_col = MAP_CTCAE_LAB[ctcae]
+        for grade in [2, 3]:
+            target_col = f'target_{ctcae}_grade{grade}+'
+
+            if ctcae in ['anemia', 'neutropenia', 'thrombocytopenia']:
+                lab_lookahead_val = df[f'target_{lab_col}_min']
+                threshold = constants[f'grade{grade}+']
+                df[target_col] = (lab_lookahead_val < threshold).astype(int)
+                df.loc[lab_lookahead_val.isnull(), target_col] = -1
+            else:
+                lab_lookahead_val = df[f'target_{lab_col}_max']
+                if ctcae == 'AKI':
+                    lab_base_val = df[lab_col].clip(upper=constants['ULN']).fillna(constants['ULN'])
+                else:
+                    lab_base_val = df[lab_col].clip(lower=constants['ULN']).fillna(constants['ULN'])
+                threshold = constants[f'grade{grade}+'] * lab_base_val
+                df[target_col] = (lab_lookahead_val > threshold).astype(int)
+                df.loc[lab_lookahead_val.isnull(), target_col] = -1
+
+    return df
+
+
+def _CTCAE_stat_func(df):
+    # prior_to_next_trt = df['obs_date'] <= df['next_treatment_date'].min()
+    # df = df[prior_to_next_trt]
+
+    data = {}
+    for col in ['hemoglobin', 'platelet', 'neutrophil']:
+        if df[col].isnull().all():
+            continue
+        idx = df[col].idxmin()
+        data[f'{col}_MIN'] = df.loc[idx, col]
+        data[f'{col}_MIN_date'] = df.loc[idx, 'obs_date']
+
+    for col in ['creatinine', 'alanine_aminotransferase', 'aspartate_aminotransferase', 'total_bilirubin']:
+        if df[col].isnull().all():
+            continue
+        idx = df[col].idxmax()
+        data[f'{col}_MAX'] = df.loc[idx, col]
+        data[f'{col}_MAX_date'] = df.loc[idx, 'obs_date']
+
+    return data

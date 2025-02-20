@@ -66,7 +66,6 @@ def combine_treatment_to_main_data(
     drug_cols = cols[cols.str.startswith('drug_')].tolist()
     treatment_drugs = treatment[drug_cols + ['mrn', 'treatment_date']] # treatment drug dosage features
     treatment_feats = treatment.drop(columns=drug_cols) # other treatment features
-    treatment_feats['trt_date'] = treatment_feats['treatment_date'] # include treatment date as a feature
     df = combine_meas_to_main_data(
         main, treatment_feats, main_date_col, 'treatment_date', stats=['last'], time_window=time_window, 
         include_meas_date=True
@@ -135,10 +134,10 @@ def combine_event_to_main_data(
     return df
 
 
-def _event_stat_func(df, mask, event_date_col):
+def _event_stat_func(df, event_date_col):
     return {
-        'num_prior_events': mask.sum(),
-        'prev_event_date': df.loc[mask, event_date_col].iloc[-1]
+        'num_prior_events': len(df),
+        'prev_event_date': df[event_date_col].iloc[-1]
     }
 
 
