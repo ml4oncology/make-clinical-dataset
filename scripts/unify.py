@@ -98,8 +98,8 @@ def main():
     if align_on != 'treatment-dates':
         df = combine_treatment_to_main_data(df, trt, main_date_col, cfg['trt_lookback_window'])
     df = combine_demographic_to_main_data(df, dmg, main_date_col)
-    df = merge_closest_measurements(df, sym, 'assessment_date', 'survey_date', time_window=cfg['symp_lookback_window'], include_meas_date=False)
-    df = merge_closest_measurements(df, lab, 'assessment_date', 'obs_date', time_window=cfg['lab_lookback_window'], include_meas_date=False)
+    df = merge_closest_measurements(df, sym, 'assessment_date', 'survey_date', time_window=cfg['symp_lookback_window'])
+    df = merge_closest_measurements(df, lab, 'assessment_date', 'obs_date', time_window=cfg['lab_lookback_window'])
     df = combine_event_to_main_data(df, erv, 'assessment_date', 'event_date', event_name='ED_visit', lookback_window=cfg['ed_visit_lookback_window'])
     df = combine_perc_dose_to_main_data(df, included_drugs)
     df = add_engineered_features(df, 'assessment_date')
