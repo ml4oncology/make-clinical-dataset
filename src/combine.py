@@ -123,7 +123,7 @@ def combine_event_to_main_data(
     stat_func = partial(_event_stat_func, event_date_col=event_date_col)
     df = combine_meas_to_main_data(
         main=main, meas=event, main_date_col=main_date_col, meas_date_col=event_date_col, parallelize=parallelize,
-        time_window=(-lookback_window * 365, 0), stat_func=stat_func, include_meas_date=False
+        time_window=(-lookback_window * 365, 0), stat_func=stat_func,
     )
 
     # 1. number of days since closest event prior to main visit date

@@ -85,7 +85,7 @@ def get_CTCAE_labels(
     # Get the minimum / maximum lab test values within lookahead window, prior to next treatment session
     df = combine_meas_to_main_data(
         main=df_main, meas=df_lab, main_date_col='assessment_date', meas_date_col='obs_date', 
-        time_window=(1, lookahead_window), stat_func=_CTCAE_stat_func, include_meas_date=False,
+        time_window=(1, lookahead_window), stat_func=_CTCAE_stat_func,
     )
     df.columns = [f'target_{col.lower()}' if "_MIN" in col or "_MAX" in col else col for col in df.columns]
 
