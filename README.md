@@ -16,6 +16,19 @@ pip install -e .
 # Instructions
 ```bash
 python scripts/csv_to_parquet.py
-python scripts/build_features.py
-python scripts/combine_features.py [OPTIONAL args]
+python scripts/build.py
+python scripts/unify.py [OPTIONAL args]
+```
+
+# Project Organization
+```
+├── data
+│   ├── external       <- Data from third party sources
+│   ├── interim        <- Intermediate data that has been transformed
+│   ├── processed      <- The final unified data sets
+│   └── raw            <- The original immutable data dump
+├── notebooks               <- Jupyter notebooks
+├── pyproject.toml          <- Build configuration
+├── scripts                 <- Python scripts
+└── src                     <- Python package where the main functionality goes
 ```
