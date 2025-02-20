@@ -20,7 +20,7 @@ from .preprocess.opis import clean_drug_name
 def combine_demographic_to_main_data(
     main: pd.DataFrame, 
     demographic: pd.DataFrame, 
-    main_date_col: str
+    main_date_col: str,
 ) -> pd.DataFrame:
     """
     Args:
@@ -41,10 +41,10 @@ def combine_demographic_to_main_data(
 
     # convert each cancer site / morphology datetime columns into binary indicator variables based on whether diagnosis
     # date occured before treatment date
-    cols = df.columns
-    cols = cols[cols.str.contains('cancer_site|morphology')]
+    date_cols = df.select_dtypes('datetime').columns
+    date_cols = date_cols[date_cols.str.contains('cancer_site|morphology')]
     # TODO: find out why df[cols] = df[cols] < df[visit_date_col] is throwing errors
-    for col in cols: df[col] = df[col] < df[main_date_col]
+    for col in date_cols: df[col] = df[col] < df[main_date_col]
 
     return df.copy()
 
