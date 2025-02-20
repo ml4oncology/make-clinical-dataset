@@ -54,6 +54,7 @@ def combine_treatment_to_main_data(
     treatment: pd.DataFrame, 
     main_date_col: str, 
     time_window: tuple[int, int] = (-28,0),
+    parallelize: bool = True,
 ) -> pd.DataFrame:
     """Combine treatment information to the main data
     For drug dosage features, add up the treatment drug dosages of the past x days for each drug
@@ -68,11 +69,11 @@ def combine_treatment_to_main_data(
     treatment_feats = treatment.drop(columns=drug_cols) # other treatment features
     df = combine_meas_to_main_data(
         main, treatment_feats, main_date_col, 'treatment_date', stats=['last'], time_window=time_window, 
-        include_meas_date=True
+        parallelize=parallelize, include_meas_date=True
     )
     df = combine_meas_to_main_data(
         df, treatment_drugs, main_date_col, 'treatment_date', stats=['sum'], time_window=time_window, 
-        include_meas_date=False
+        parallelize=parallelize, include_meas_date=False
     )
     df.columns = df.columns.str.replace('_LAST', '').str.replace('_SUM', '')
     return df
