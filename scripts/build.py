@@ -1,5 +1,5 @@
 """
-Script to turn raw data into features for modelling
+Script to turn raw data into features / targets for modelling
 """
 import argparse
 import os

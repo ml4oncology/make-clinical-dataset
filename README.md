@@ -16,6 +16,6 @@ pip install -e .
 # Instructions
 ```bash
 python scripts/csv_to_parquet.py
-python scripts/build_features.py
-python scripts/combine_features.py [OPTIONAL args]
+python scripts/build.py
+python scripts/unify.py [OPTIONAL args]
 ```

@@ -1,5 +1,5 @@
 """
-Script to combine the features into one unified dataset
+Script to combine all the data into one unified dataset
 """
 from itertools import product
 import argparse
@@ -8,16 +8,17 @@ import os
 import pandas as pd
 import yaml
 
-from make_clinical_dataset import logger
 from make_clinical_dataset.combine import (
     add_engineered_features,
     combine_demographic_to_main_data, 
     combine_event_to_main_data,
-    combine_feat_to_main_data, 
     combine_perc_dose_to_main_data,
     combine_treatment_to_main_data
 )
+from make_clinical_dataset.label import get_CTCAE_labels, get_ED_labels, get_symptom_labels
 from make_clinical_dataset.util import load_included_drugs
+
+from ml_common.anchor import merge_closest_measurements
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -77,48 +78,38 @@ def main():
 
     if align_on == 'treatment-dates':
         df = trt
+
     elif align_on == 'weekly-mondays':
-        #TODO: make mrn and start and end date selection robust (i.e. make them into command line arguments)
-        mrns = trt['mrn'].unique()
+        mrns = dmg['mrn'].unique()
         dates = pd.date_range(start='2018-01-01', end='2018-12-31', freq='W-MON')
         df = pd.DataFrame(product(mrns, dates), columns=['mrn', main_date_col])
+
     elif align_on.endswith('.parquet.gzip') or align_on.endswith('.parquet'):
         df = pd.read_parquet(align_on)
+
     elif align_on.endswith('.csv'):
         df = pd.read_csv(align_on, parse_dates=[main_date_col])
+
     else:
         raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
-
+    
+    # Extract features
+    df['assessment_date'] = df[main_date_col]
     if align_on != 'treatment-dates':
-        logger.info('Combining treatment features...')
-        df = combine_treatment_to_main_data(
-            df, trt, main_date_col=main_date_col, time_window=cfg['trt_lookback_window']
-        )
-    
-    logger.info('Combining demographic features...')
-    df = combine_demographic_to_main_data(main=df, demographic=dmg, main_date_col=main_date_col)
-    
-    logger.info('Combining symptom features...')
-    df = combine_feat_to_main_data(
-        main=df, feat=sym, main_date_col=main_date_col, feat_date_col='survey_date', 
-        time_window=cfg['symp_lookback_window']
-    )
-    
-    logger.info('Combining lab features...')
-    df = combine_feat_to_main_data(
-        main=df, feat=lab, main_date_col=main_date_col, feat_date_col='obs_date', 
-        time_window=cfg['lab_lookback_window']
-    )
+        df = combine_treatment_to_main_data(df, trt, main_date_col, cfg['trt_lookback_window'])
+    df = combine_demographic_to_main_data(df, dmg, main_date_col)
+    df = merge_closest_measurements(df, sym, 'treatment_date', 'survey_date', time_window=cfg['symp_lookback_window'], include_meas_date=False)
+    df = merge_closest_measurements(df, lab, 'treatment_date', 'obs_date', time_window=cfg['lab_lookback_window'], include_meas_date=False)
+    df = combine_event_to_main_data(df, erv, 'treatment_date', 'event_date', event_name='ED_visit', lookback_window=cfg['ed_visit_lookback_window'])
+    df = combine_perc_dose_to_main_data(df, included_drugs)
+    df = add_engineered_features(df, 'treatment_date')
 
-    logger.info('Combining ED visit features...')
-    df = combine_event_to_main_data(
-        main=df, event=erv, main_date_col='treatment_date', event_date_col='event_date', event_name='ED_visit',
-        lookback_window=cfg['ed_visit_lookback_window']
-    )
-    
-    logger.info('Combining engineered features...')
-    df = combine_perc_dose_to_main_data(main=df, included_drugs=included_drugs)
-    df = add_engineered_features(df, date_col=main_date_col)
+    # Extract targets
+    df['target_death_30d'] = df['date_of_death'] < df['treatment_date'] + pd.Timedelta(days=30)
+    df['target_death_365d'] = df['date_of_death'] < df['treatment_date'] + pd.Timedelta(days=365)
+    df = get_ED_labels(df, erv[['mrn', 'event_date']].copy(), lookahead_window=30)
+    df = get_symptom_labels(df, sym, lookahead_window=30)
+    df = get_CTCAE_labels(df, lab, lookahead_window=30)
     
     df.to_parquet(f'{output_dir}/{output_filename}.parquet.gzip', compression='gzip', index=False)
     

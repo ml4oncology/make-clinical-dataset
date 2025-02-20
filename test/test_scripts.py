@@ -29,13 +29,13 @@ def test_combine_features_mock(tmp_path):
     drug_list = pd.DataFrame([['d', 'regimen_dose * weight', 1, 'INCLUDE']], columns=['name', 'recommended_dose_formula', 'counts', 'category'])
     drug_list.to_csv(f'{tmp_path}/external/opis_drug_list.csv', index=False)
     
-    cmd = ['python', 'scripts/combine_features.py', '--data-dir', tmp_path, '--output-dir', tmp_path]
+    cmd = ['python', 'scripts/unify.py', '--data-dir', tmp_path, '--output-dir', tmp_path]
     result = subprocess.run(cmd, capture_output=True)
     assert result.returncode == 0
 
 # @pytest.mark.xfail
 def test_combine_features(tmp_path):
     """NOTE: tmp_path is an inbuilt Pytest fixture and pathlib.Path` object"""
-    cmd = ['python', 'scripts/combine_features.py', '--output-dir', tmp_path]
+    cmd = ['python', 'scripts/unify.py', '--output-dir', tmp_path]
     result = subprocess.run(cmd, capture_output=True)
     assert result.returncode == 0

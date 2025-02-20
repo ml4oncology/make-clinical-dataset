@@ -7,7 +7,6 @@ from .constants import CTCAE_CONSTANTS, MAP_CTCAE_LAB
 
 from ml_common.anchor import combine_meas_to_main_data, merge_closest_measurements
 from ml_common.constants import SYMP_COLS
-from ml_common.filter import keep_only_one_per_week
 
 ###############################################################################
 # Emergency Department Visits
@@ -78,24 +77,11 @@ def get_symptom_labels(
 ###############################################################################
 def get_CTCAE_labels(
     df_main: pd.DataFrame,
-    df_trt: pd.DataFrame,
     df_lab: pd.DataFrame,
     lookahead_window: int = 30
 ) -> pd.DataFrame:
-    """Compute CTCAE labels for each record using treatment and lab data.
-    
-    This function first computes lookahead lab values (prior to the next treatment session within the lookahead window)
-    and applies the threshold functions to generate CTCAE grade labels.
+    """Compute lookahead lab values and apply the threshold functions to generate CTCAE grade labels
     """
-    # Get the next treatment session for each lab date
-    df_trt = keep_only_one_per_week(df_trt, date_col='treatment_date')
-    df_lab = merge_closest_measurements(
-        main=df_lab, meas=df_trt[['mrn', 'treatment_date']], main_date_col='obs_date', meas_date_col='treatment_date', 
-        direction='forward', time_window=(0, lookahead_window), merge_individually=False
-    )
-    df_lab = df_lab.rename(columns={'treatment_date': 'next_treatment_date'})
-    df_lab['next_treatment_date'] = df_lab['next_treatment_date'].fillna(pd.Timestamp.max)
-
     # Get the minimum / maximum lab test values within lookahead window, prior to next treatment session
     df = combine_meas_to_main_data(
         main=df_main, meas=df_lab, main_date_col='assessment_date', meas_date_col='obs_date', 
@@ -128,9 +114,6 @@ def get_CTCAE_labels(
 
 
 def _CTCAE_stat_func(df):
-    # prior_to_next_trt = df['obs_date'] <= df['next_treatment_date'].min()
-    # df = df[prior_to_next_trt]
-
     data = {}
     for col in ['hemoglobin', 'platelet', 'neutrophil']:
         if df[col].isnull().all():
