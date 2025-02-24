@@ -93,11 +93,11 @@ def get_CTCAE_labels(
     for ctcae, constants in CTCAE_CONSTANTS.items():
         lab_col = MAP_CTCAE_LAB[ctcae]
         for grade in [2, 3]:
-            target_col = f'target_{ctcae}_grade{grade}+'
+            target_col = f'target_{ctcae}_grade{grade}plus'
 
-            if ctcae in ['anemia', 'neutropenia', 'thrombocytopenia']:
+            if ctcae in ['hemoglobin', 'neutrophil', 'platelet']:
                 lab_lookahead_val = df[f'target_{lab_col}_min']
-                threshold = constants[f'grade{grade}+']
+                threshold = constants[f'grade{grade}plus']
                 df[target_col] = (lab_lookahead_val < threshold).astype(int)
                 df.loc[lab_lookahead_val.isnull(), target_col] = -1
             else:
@@ -106,7 +106,7 @@ def get_CTCAE_labels(
                     lab_base_val = df[lab_col].clip(upper=constants['ULN']).fillna(constants['ULN'])
                 else:
                     lab_base_val = df[lab_col].clip(lower=constants['ULN']).fillna(constants['ULN'])
-                threshold = constants[f'grade{grade}+'] * lab_base_val
+                threshold = constants[f'grade{grade}plus'] * lab_base_val
                 df[target_col] = (lab_lookahead_val > threshold).astype(int)
                 df.loc[lab_lookahead_val.isnull(), target_col] = -1
 

@@ -64,36 +64,36 @@ OBS_MAP = {
 # Constants for CTCAE thresholds
 # ULN = upper limit of normal
 CTCAE_CONSTANTS = {
-    'anemia': {
-        'grade2+': 100, # <100 - 80 g/L
-        'grade3+': 80 # <80 g/L
+    'hemoglobin': {
+        'grade2plus': 100, # <100 - 80 g/L
+        'grade3plus': 80 # <80 g/L
     },
-    'neutropenia': {
-        'grade2+': 1.5, # <1.5 - 1.0 x 10e9 /L
-        'grade3+': 1.0 # <1.0 - 0.5 x 10e9 /L
+    'neutrophil': {
+        'grade2plus': 1.5, # <1.5 - 1.0 x 10e9 /L
+        'grade3plus': 1.0 # <1.0 - 0.5 x 10e9 /L
     },
-    'thrombocytopenia': {
-        'grade2+': 75, # <75 - 50 x 10e9 /L
-        'grade3+': 50 # <50 - 25 x 10e9 /L
+    'platelet': {
+        'grade2plus': 75, # <75 - 50 x 10e9 /L
+        'grade3plus': 50 # <50 - 25 x 10e9 /L
     },
-    'hyperbilirubinemia': {
-        'grade2+': 1.5, # >1.5 - 3.0 x ULN if baseline was normal, >1.5 - 3.0 x baseline if baseline was abnormal
-        'grade3+': 3.0, # >3.0 - 10.0 x ULN if baseline was normal; >3.0 - 10.0 x baseline if baseline was abnormal
+    'bilirubin': {
+        'grade2plus': 1.5, # >1.5 - 3.0 x ULN if baseline was normal, >1.5 - 3.0 x baseline if baseline was abnormal
+        'grade3plus': 3.0, # >3.0 - 10.0 x ULN if baseline was normal; >3.0 - 10.0 x baseline if baseline was abnormal
         'ULN': 22.0
     },
     'AKI': {
-        'grade2+': 1.5, # >1.5 - 3.0 x baseline; >1.5 - 3.0 x ULN
-        'grade3+': 3.0, # >3.0 x baseline; >3.0 - 6.0 x ULN
+        'grade2plus': 1.5, # >1.5 - 3.0 x baseline; >1.5 - 3.0 x ULN
+        'grade3plus': 3.0, # >3.0 x baseline; >3.0 - 6.0 x ULN
         'ULN': 353.68
     },
     'ALT': {
-        'grade2+': 3.0, # >3.0 - 5.0 x ULN if baseline was normal; >3.0 - 5.0 x baseline if baseline was abnormal
-        'grade3+': 5.0, # >5.0 - 20.0 x ULN if baseline was normal; >5.0 - 20.0 x baseline if baseline was abnormal
+        'grade2plus': 3.0, # >3.0 - 5.0 x ULN if baseline was normal; >3.0 - 5.0 x baseline if baseline was abnormal
+        'grade3plus': 5.0, # >5.0 - 20.0 x ULN if baseline was normal; >5.0 - 20.0 x baseline if baseline was abnormal
         'ULN': 40.0
     },
     'AST': {
-        'grade2+': 3.0, # >3.0 - 5.0 x ULN if baseline was normal; >3.0 - 5.0 x baseline if baseline was abnormal
-        'grade3+': 5.0, # >5.0 - 20.0 x ULN if baseline was normal; >5.0 - 20.0 x baseline if baseline was abnormal
+        'grade2plus': 3.0, # >3.0 - 5.0 x ULN if baseline was normal; >3.0 - 5.0 x baseline if baseline was abnormal
+        'grade3plus': 5.0, # >5.0 - 20.0 x ULN if baseline was normal; >5.0 - 20.0 x baseline if baseline was abnormal
         'ULN': 34.0
     },
 }
@@ -103,8 +103,8 @@ MAP_CTCAE_LAB = {
     'AKI': 'creatinine', # Acute kidney injury / creatinine increase
     'ALT': 'alanine_aminotransferase', # Alanine aminotransferase increase
     'AST': 'aspartate_aminotransferase', # Aspartate aminotransferase increase
-    'hyperbilirubinemia': 'total_bilirubin', # Blood bilirubin increase
-    'anemia': 'hemoglobin', # Hemoglobin decrease
-    'neutropenia': 'neutrophil', # Neutrophil count decrease
-    'thrombocytopenia': 'platelet' # Platelet count decrease
+    'bilirubin': 'total_bilirubin', # Blood bilirubin increase
+    'hemoglobin': 'hemoglobin', # Hemoglobin decrease
+    'neutrophil': 'neutrophil', # Neutrophil count decrease
+    'platelet': 'platelet' # Platelet count decrease
 }

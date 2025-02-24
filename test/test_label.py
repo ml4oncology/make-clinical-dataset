@@ -37,16 +37,16 @@ def test_symptom_deterioration_label(df, sym, col):
         assert sym.query('mrn == @mrn & @begin <= survey_date <= @end')[col].max() == lookahead_val
 
 @pytest.mark.xfail
-@pytest.mark.parametrize("targ", ['anemia', 'neutropenia', 'thrombocytopenia'])
+@pytest.mark.parametrize("targ", ['hemoglobin', 'neutrophil', 'platelet'])
 def test_ctcae_lab_values(df, lab, targ):
     col = MAP_CTCAE_LAB[targ]
     
     # make sure target follows the CTCAE definitions
-    tmp = df[df[f'target_{targ}_grade2+'] == 1]
-    assert all(tmp[f'target_{col}_min'] < CTCAE_CONSTANTS[targ]['grade2+'])
+    tmp = df[df[f'target_{targ}_grade2plus'] == 1]
+    assert all(tmp[f'target_{col}_min'] < CTCAE_CONSTANTS[targ]['grade2plus'])
     
-    tmp = df[df[f'target_{targ}_grade3+'] == 1]
-    assert all(tmp[f'target_{col}_min'] < CTCAE_CONSTANTS[targ]['grade3+'])
+    tmp = df[df[f'target_{targ}_grade3plus'] == 1]
+    assert all(tmp[f'target_{col}_min'] < CTCAE_CONSTANTS[targ]['grade3plus'])
     
     # make sure the extracted lookahead values in the final dataset aligns with the values in the symptom dataset
     sampled_data = tmp.sample(min(100, len(tmp)), random_state=42)[['mrn', 'assessment_date', f'target_{col}_min']].to_numpy()
@@ -55,20 +55,20 @@ def test_ctcae_lab_values(df, lab, targ):
         assert lab.query('mrn == @mrn & @begin <= obs_date <= @end')[col].min() == lookahead_val
 
 @pytest.mark.xfail
-@pytest.mark.parametrize("targ", ['hyperbilirubinemia', 'AKI', 'AST', 'ALT'])
+@pytest.mark.parametrize("targ", ['bilirubin', 'AKI', 'AST', 'ALT'])
 def test_ctcae_lab_uln(df, lab, targ):
     col = MAP_CTCAE_LAB[targ]
     ULN = CTCAE_CONSTANTS[targ]['ULN']
     clip_kwargs = dict(upper=ULN) if targ == 'AKI' else dict(lower=ULN)
     
     # make sure target follows the CTCAE definitions
-    tmp = df[df[f'target_{targ}_grade2+'] == 1]
+    tmp = df[df[f'target_{targ}_grade2plus'] == 1]
     base = tmp[col].fillna(ULN).clip(**clip_kwargs)
-    assert all(tmp[f'target_{col}_max'] > CTCAE_CONSTANTS[targ]['grade2+'] * base)
+    assert all(tmp[f'target_{col}_max'] > CTCAE_CONSTANTS[targ]['grade2plus'] * base)
     
-    tmp = df[df[f'target_{targ}_grade3+'] == 1]
+    tmp = df[df[f'target_{targ}_grade3plus'] == 1]
     base = tmp[col].fillna(ULN).clip(**clip_kwargs)
-    assert all(tmp[f'target_{col}_max'] > CTCAE_CONSTANTS[targ]['grade3+'] * base)
+    assert all(tmp[f'target_{col}_max'] > CTCAE_CONSTANTS[targ]['grade3plus'] * base)
     
     # make sure the extracted lookahead values in the final dataset aligns with the values in the symptom dataset
     sampled_data = tmp.sample(min(100, len(tmp)), random_state=42)[['mrn', 'assessment_date', f'target_{col}_max']].to_numpy()
