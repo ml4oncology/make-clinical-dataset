@@ -37,6 +37,9 @@ def test_combine_features_mock(tmp_path):
     
     drug_list = pd.DataFrame([['d', 'regimen_dose * weight', 1, 'INCLUDE']], columns=['name', 'recommended_dose_formula', 'counts', 'category'])
     drug_list.to_csv(f'{tmp_path}/external/opis_drug_list.csv', index=False)
+
+    last_seen = pd.DataFrame([pd.Timestamp('2021-01-01')], index=[mrn], columns=['last_seen_date'])
+    last_seen.to_parquet(f'{tmp_path}/interim/last_seen_dates.parquet.gzip', compression='gzip')
     
     cmd = ['python', 'scripts/unify.py', '--data-dir', tmp_path, '--output-dir', tmp_path]
     result = subprocess.run(cmd, capture_output=True)

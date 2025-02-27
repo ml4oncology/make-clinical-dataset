@@ -16,6 +16,20 @@ from make_clinical_dataset.preprocess.radiology import get_radiology_data
 from make_clinical_dataset.preprocess.recist import get_recist_data
 from make_clinical_dataset.util import load_included_drugs, load_included_regimens
 
+def get_last_seen_dates(data_dir: str):
+    last_seen = pd.DataFrame()
+    dataset_map = {
+        'lab': 'obs_date', 
+        'symptom': 'survey_date', 
+        'treatment': 'treatment_date', 
+        'demographic': 'last_contact_date'
+    }
+    for dataset, date_col in dataset_map.items():
+        df = pd.read_parquet(f'{data_dir}/{dataset}.parquet.gzip')
+        last_seen_in_database = df.groupby('mrn')[date_col].max().rename(f'{dataset}_last_seen_date')
+        last_seen = pd.concat([last_seen, last_seen_in_database], axis=1)
+    last_seen['last_seen_date'] = last_seen.max(axis=1)
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', type=str, default='./data')
@@ -63,6 +77,11 @@ def main():
     # tumor response - COMPASS trial
     recist = get_recist_data(data_dir=f'{data_dir}/external')
     recist.to_parquet(f'{data_dir}/interim/recist.parquet.gzip', compression='gzip', index=False)
+
+    # last seen date in each dataset
+    last_seen = get_last_seen_dates(data_dir=f'{data_dir}/interim')
+    last_seen.to_parquet(f'{data_dir}/interim/last_seen_dates.parquet.gzip', compression='gzip')
+
     
 if __name__ == '__main__':
     main()

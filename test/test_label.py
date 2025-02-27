@@ -6,7 +6,7 @@ from ml_common.constants import SYMP_COLS
 
 @pytest.fixture
 def df():
-    return pd.read_parquet('./data/processed/treatment_centered_clinical_dataset.parquet.gzip')
+    return pd.read_parquet('./data/processed/treatment_centered_dataset.parquet.gzip')
 
 @pytest.fixture
 def sym():
