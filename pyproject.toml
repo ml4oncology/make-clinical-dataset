@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "make_clinical_dataset"
-description = "Generate clinical dataset from patients treated at Princess Margaret hospital"
-version = "0.1.1"
+description = "Generate clinical dataset from patients treated at Princess Margaret Cancer Center"
+version = "0.2.0"
 authors = [
     { name = "Kevin He", email = "Kevin.He@uhn.ca" }
 ]
@@ -14,10 +14,11 @@ dependencies = [
     "tqdm",
     "pandas", 
     "pyarrow",
+    "pyspark",
     "pyyaml",
     "pytest",
     "pytest-xdist"
 ]
 
 [tool.setuptools]
-package-dir = {"make_clinical_dataset" = "src"}
+package-dir = {"make_clinical_dataset" = "src/EPR"}
