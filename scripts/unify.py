@@ -15,7 +15,7 @@ from make_clinical_dataset.combine import (
     combine_perc_dose_to_main_data,
     combine_treatment_to_main_data
 )
-from make_clinical_dataset.label import get_CTCAE_labels, get_ED_labels, get_symptom_labels
+from make_clinical_dataset.label import get_CTCAE_labels, get_death_labels, get_ED_labels, get_symptom_labels
 from make_clinical_dataset.util import load_included_drugs
 
 from ml_common.anchor import merge_closest_measurements
@@ -72,6 +72,7 @@ def main():
     dmg = pd.read_parquet(f'{data_dir}/interim/demographic.parquet.gzip')
     sym = pd.read_parquet(f'{data_dir}/interim/symptom.parquet.gzip')
     erv = pd.read_parquet(f'{data_dir}/interim/emergency_room_visit.parquet.gzip')
+    last_seen = pd.read_parquet(f'{data_dir}/interim/last_seen_dates.parquet.gzip')
     included_drugs = load_included_drugs(data_dir=f'{data_dir}/external')
     with open(config_path) as file:
         cfg = yaml.safe_load(file)
@@ -94,6 +95,7 @@ def main():
         raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
     
     # Extract features
+    df['last_seen_date'] = df['mrn'].map(last_seen['last_seen_date'])
     df['assessment_date'] = df[main_date_col]
     if align_on != 'treatment-dates':
         df = combine_treatment_to_main_data(df, trt, main_date_col, cfg['trt_lookback_window'])
@@ -105,8 +107,7 @@ def main():
     df = add_engineered_features(df, 'assessment_date')
 
     # Extract targets
-    df['target_death_30d'] = df['date_of_death'] < df['assessment_date'] + pd.Timedelta(days=30)
-    df['target_death_365d'] = df['date_of_death'] < df['assessment_date'] + pd.Timedelta(days=365)
+    df = get_death_labels(df, lookahead_window=[30, 365])
     df = get_ED_labels(df, erv[['mrn', 'event_date']].copy(), lookahead_window=30)
     df = get_symptom_labels(df, sym, lookahead_window=30)
     df = get_CTCAE_labels(df, lab, lookahead_window=30)

@@ -8,6 +8,26 @@ from .constants import CTCAE_CONSTANTS, MAP_CTCAE_LAB
 from ml_common.anchor import combine_meas_to_main_data, merge_closest_measurements
 from ml_common.constants import SYMP_COLS
 
+
+###############################################################################
+# Death
+###############################################################################
+def get_death_labels(df: pd.DataFrame, lookahead_window: int | list[int] = 30) -> pd.DataFrame:
+    if isinstance(lookahead_window, int):
+        lookahead_window = [lookahead_window]
+
+    ghost_mask = df['last_seen_date'] > df['date_of_death']
+
+    for days in lookahead_window:
+        label = df['date_of_death'] < df['assessment_date'] + pd.Timedelta(days=days)
+        df[f'target_death_in_{days}d'] = label.astype(int)
+
+        # exclude patients who were seen after death
+        df.loc[ghost_mask, f'target_death_in_{days}d'] = -1
+
+    return df
+
+
 ###############################################################################
 # Emergency Department Visits
 ###############################################################################
