@@ -42,7 +42,7 @@ def get_ED_labels(
     event['ED_date'] = event['event_date']
     df = merge_closest_measurements(
         df, event, main_date_col='assessment_date', meas_date_col='event_date', 
-        direction='forward', time_window=(1, max(lookahead_window))
+        direction='forward', time_window=(0, max(lookahead_window))
     )
     df = df.rename(columns={'ED_date': 'target_ED_date'})
 

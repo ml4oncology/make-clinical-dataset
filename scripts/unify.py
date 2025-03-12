@@ -118,7 +118,7 @@ if __name__ == '__main__':
     """
     Example of running the script:
 
-    > python scripts/combine_features.py --align-on weekly-mondays --date-column assessment_date --output-filename \
+    > python scripts/unify.py --align-on weekly-mondays --date-column assessment_date --output-filename \
         monday_centered_clinical_dataset
     """
     main()
