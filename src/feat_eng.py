@@ -4,6 +4,7 @@ Module for feature engineering
 import numpy as np
 import pandas as pd
 
+
 ###############################################################################
 # Time
 ###############################################################################
@@ -15,7 +16,7 @@ def get_visit_month_feature(df, col: str = 'treatment_date'):
     return df
 
 def get_days_since_last_event(df, main_date_col: str = 'treatment_date', event_date_col: str = 'treatment_date'):
-    if main_date_col == event_date_col:
+    if (df[main_date_col] == df[event_date_col]).all():
         return (df[main_date_col] - df[event_date_col].shift()).dt.days
     else:
         return (df[main_date_col] - df[event_date_col]).dt.days
