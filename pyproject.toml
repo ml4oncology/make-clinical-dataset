@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "make_clinical_dataset"
 description = "Generate clinical dataset from patients treated at Princess Margaret hospital"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     { name = "Kevin He", email = "Kevin.He@uhn.ca" }
 ]
