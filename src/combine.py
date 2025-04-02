@@ -4,15 +4,14 @@ Module to combine features
 from functools import partial
 
 import pandas as pd
-
 from ml_common.anchor import combine_meas_to_main_data
 from ml_common.util import get_excluded_numbers
 
-from .feat_eng import ( 
-    get_days_since_last_event, 
+from .feat_eng import (
+    get_days_since_last_event,
     get_perc_ideal_dose_given,
     get_visit_month_feature,
-    get_years_diff, 
+    get_years_diff,
 )
 from .preprocess.opis import clean_drug_name
 
@@ -39,12 +38,19 @@ def combine_demographic_to_main_data(
     get_excluded_numbers(df, mask, context=' under 18 years of age')
     df = df[mask]
 
-    # convert each cancer site / morphology datetime columns into binary indicator variables based on whether diagnosis
-    # date occured before treatment date
-    date_cols = df.select_dtypes('datetime').columns
-    date_cols = date_cols[date_cols.str.contains('cancer_site|morphology')]
-    # TODO: find out why df[cols] = df[cols] < df[visit_date_col] is throwing errors
-    for col in date_cols: df[col] = df[col] < df[main_date_col]
+    # convert each cancer site / morphology datetime columns into ternary indicator variables
+    # 0 - diagnosis date did not occur before treatment date
+    # 1 - prior diagnosis but not the most recent diagnosis before treatment date
+    # 2 - most recent diagnosis prior to treatment date
+    cols = df.columns
+    for category in ['cancer_site', 'morphology']:
+        date_cols = cols[cols.str.contains(category)]
+        diag_dates = df[date_cols]
+        prior_to_trt = diag_dates.lt(df['treatment_date'], axis=0)
+        most_recent_date = diag_dates[prior_to_trt].max(axis=1)
+        df[date_cols] = prior_to_trt.astype(int)
+        for col, dates in diag_dates.items():
+            df.loc[dates == most_recent_date, col] = 2
 
     return df.copy()
 
