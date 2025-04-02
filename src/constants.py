@@ -49,7 +49,6 @@ OBS_MAP = {
         'Sodium': 'sodium',
         'Total Bilirubin': 'total_bilirubin',
         'Tot Bilirubin': 'total_bilirubin',
-        'Urea Plasma': 'urea',
 
         'AST': 'aspartate_aminotransferase',
         'ALT': 'alanine_aminotransferase',
@@ -59,6 +58,7 @@ OBS_MAP = {
         'RDW-CV': 'red_cell_distribution_width',
 
         # Other possible useful features
+        # 'Urea Plasma': 'urea', # per Rob, not a common test, might cause label leakage - this test is only taken when clinician believes something is wrong
         # 'Amylase': 'amylase',
         # 'Anion Gap': 'anion_gap',
         # 'Lactate': 'lactate',
