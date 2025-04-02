@@ -39,16 +39,16 @@ def combine_demographic_to_main_data(
     df = df[mask]
 
     # convert each cancer site / morphology datetime columns into ternary indicator variables
-    # 0 - diagnosis date did not occur before treatment date
-    # 1 - prior diagnosis but not the most recent diagnosis before treatment date
-    # 2 - most recent diagnosis prior to treatment date
+    # 0 - diagnosis date did not occur before assessment date
+    # 1 - prior diagnosis but not the most recent diagnosis before assessment date
+    # 2 - most recent diagnosis prior to assessment date
     cols = df.columns
     for category in ['cancer_site', 'morphology']:
         date_cols = cols[cols.str.contains(category)]
         diag_dates = df[date_cols]
-        prior_to_trt = diag_dates.lt(df['treatment_date'], axis=0)
-        most_recent_date = diag_dates[prior_to_trt].max(axis=1)
-        df[date_cols] = prior_to_trt.astype(int)
+        prior_to_assessment = diag_dates.lt(df[main_date_col], axis=0)
+        most_recent_date = diag_dates[prior_to_assessment].max(axis=1)
+        df[date_cols] = prior_to_assessment.astype(int)
         for col, dates in diag_dates.items():
             df.loc[dates == most_recent_date, col] = 2
 
