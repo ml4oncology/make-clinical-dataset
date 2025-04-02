@@ -2,7 +2,7 @@
 OBS_MAP = {
     'Hematology': {
         'Basophils': 'basophil',
-        'Basos': 'basophil',
+        # 'Basos': 'basophil', # distribution seems odd, not using this one
         'Eosinophils': 'eosinophil',
         'Eosin': 'eosinophil',
         'Eos': 'eosinophil',
@@ -13,8 +13,9 @@ OBS_MAP = {
         'Monos': 'monocyte',
         'Mono': 'monocyte', 
         'Neutrophils': 'neutrophil',
+        'NeutroA': 'neutrophil',
         
-        # NOTE: Hb also exists in Biochemistry, but the procedure is different (arterial blood gas test instead of CBC)
+        # NOTE: Hb and Hemoglobin also exists in Biochemistry, but the procedure is different (arterial blood gas test instead of CBC)
         'Hb': 'hemoglobin',
         'Hct': 'hematocrit',
         'Plt': 'platelet',
@@ -23,6 +24,7 @@ OBS_MAP = {
         'MCHC': 'mean_corpuscular_hemoglobin_concentration',
         'MCV': 'mean_corpuscular_volume',
         'MPV': 'mean_platelet_volume',
+        'PCV': 'hematocrit', # packed cell volume, same as hematocrit test
         'RBC': 'red_blood_cell',
         'RDW': 'red_cell_distribution_width',
         'WBC': 'white_blood_cell',
@@ -34,21 +36,20 @@ OBS_MAP = {
     },
     'Biochemistry': {
         'Albumin': 'albumin',
-        'Alkaline Phosphatase': 'alkaline_phosphatase',
         'Bicarbonate': 'bicarbonate',
-        'Bilirubin,Total': 'total_bilirubin',
+        'Calcium': 'calcium',
         'Carcinoembryonic Antigen': 'carcinoembryonic_antigen',
         'Chloride': 'chloride',
         'Creatinine': 'creatinine',
+        'Estimated GFR': 'estimated_glomerular_filtration_rate',
         'Glucose': 'glucose',
-        'Glucose, Random': 'glucose',
-        'Lactate Dehydrogenase': 'lactate_dehydrogenase',
         'Magnesium': 'magnesium',
         'Phosphate': 'phosphate',
         'Potassium': 'potassium',
         'Sodium': 'sodium',
         'Total Bilirubin': 'total_bilirubin',
         'Tot Bilirubin': 'total_bilirubin',
+        'Urea Plasma': 'urea',
 
         'AST': 'aspartate_aminotransferase',
         'ALT': 'alanine_aminotransferase',
@@ -56,6 +57,16 @@ OBS_MAP = {
         'CA 19-9': 'carbohydrate_antigen_19-9',
         'LDH': 'lactate_dehydrogenase',
         'RDW-CV': 'red_cell_distribution_width',
+
+        # Other possible useful features
+        # 'Amylase': 'amylase',
+        # 'Anion Gap': 'anion_gap',
+        # 'Lactate': 'lactate',
+        # 'pH': 'pH',
+        # 'pCO2': 'pCO2',
+        # 'pO2': 'pO2',
+        # 'HCO3': 'HCO3',
+        # 'O2 Saturation': 'oxygen_saturation',
     }
 }
 
