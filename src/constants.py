@@ -67,6 +67,12 @@ OBS_MAP = {
         # 'pO2': 'pO2',
         # 'HCO3': 'HCO3',
         # 'O2 Saturation': 'oxygen_saturation',
+
+        # EPIC specific names
+        'Alkaline Phosphatase': 'alkaline_phosphatase',
+        'Bilirubin,Total': 'total_bilirubin',
+        'Glucose, Random': 'glucose',
+        'Lactate Dehydrogenase': 'lactate_dehydrogenase',
     }
 }
 
