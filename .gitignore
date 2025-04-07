@@ -3,5 +3,6 @@
 .DS_store
 data/
 notebooks/debug
+_*.ipynb
 .*cache
 *.egg-info

@@ -7,10 +7,6 @@ The main aim of this repository is to have a central pipeline for generating the
 HISTORY:
 Prior to 2022, PMCC was under the EPR system. Now, it migrated to the EPIC system. Thus, there are two pipelines. 
 
-Current Epic Data Flow:
-D
-
-
 # Data Location
 The external data is located in the Google Drive folder [ml4o/projects/aim2reduce/data](https://drive.google.com/drive/folders/1DcUbnKlEmj0wObx1VMOnPWheBp0szp8r?usp=drive_link). The raw data is located in the HPC4Health cluster hosted by University Health Network. 
 
@@ -21,10 +17,17 @@ pip install -e .
 ```
 
 # Instructions
+EPR Flow
 ```bash
-python scripts/csv_to_parquet.py
-python scripts/build.py
-python scripts/unify.py [OPTIONAL args]
+python scripts/EPR/csv_to_parquet.py
+python scripts/EPR/build.py
+python scripts/EPR/unify.py [OPTIONAL args]
+```
+
+EPIC Flow
+```bash
+python scripts/EPIC/curate_procs.py
+python scripts/EPIC/separate.py
 ```
 
 # Project Organization
