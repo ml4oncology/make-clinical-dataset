@@ -5,8 +5,8 @@ from typing import Optional
 
 import pandas as pd
 
+from make_clinical_dataset import logger
 from ml_common.util import get_excluded_numbers, split_and_parallelize
-from .. import ROOT_DIR, logger
 
 ###############################################################################
 # ER (Emergency Room - NEW PULL)

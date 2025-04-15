@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import re
 
+from make_clinical_dataset.feat_eng import get_line_of_therapy
 from ml_common.util import get_excluded_numbers
-from ..feat_eng import get_line_of_therapy
 
 def get_treatment_data(
     drugs: pd.DataFrame, 

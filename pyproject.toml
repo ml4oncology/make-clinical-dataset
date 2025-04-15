@@ -21,4 +21,4 @@ dependencies = [
 ]
 
 [tool.setuptools]
-package-dir = {"make_clinical_dataset" = "src/EPR"}
+package-dir = {"make_clinical_dataset" = "src"}
