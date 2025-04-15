@@ -14,6 +14,9 @@ The external data is located in the Google Drive folder [ml4o/projects/aim2reduc
 ```bash
 git clone https://github.com/ml4oncology/make-clinical-dataset
 pip install -e .
+
+# optional
+nbstripout --install --keep-output
 ```
 
 # Instructions
@@ -28,6 +31,7 @@ EPIC Flow
 ```bash
 python scripts/EPIC/curate_procs.py
 python scripts/EPIC/separate.py
+python scripts/EPIC/build.py
 ```
 
 # Project Organization

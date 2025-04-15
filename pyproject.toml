@@ -17,7 +17,8 @@ dependencies = [
     "pyspark",
     "pyyaml",
     "pytest",
-    "pytest-xdist"
+    "pytest-xdist",
+    "nbstripout"
 ]
 
 [tool.setuptools]
