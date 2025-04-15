@@ -7,6 +7,7 @@ import os
 import pandas as pd
 
 from make_clinical_dataset.preprocess.epic.lab import get_lab_data
+from make_clinical_dataset.util import load_lab_map
 
 # Paths and Configurations
 DATE = '2025-03-29'
