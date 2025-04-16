@@ -22,16 +22,16 @@ nbstripout --install --keep-output
 # Instructions
 EPR Flow
 ```bash
-python scripts/EPR/csv_to_parquet.py
-python scripts/EPR/build.py
-python scripts/EPR/unify.py [OPTIONAL args]
+python scripts/epr/csv_to_parquet.py
+python scripts/epr/build.py
+python scripts/unify.py [OPTIONAL args]
 ```
 
 EPIC Flow
 ```bash
-python scripts/EPIC/curate_procs.py
-python scripts/EPIC/separate.py
-python scripts/EPIC/build.py
+python scripts/epic/curate_procs.py
+python scripts/epic/separate.py
+python scripts/epic/build.py
 ```
 
 # Project Organization
