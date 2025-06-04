@@ -5,7 +5,7 @@ from typing import Optional
 
 import pandas as pd
 
-from make_clinical_datasets.constants import OBS_MAP
+from make_clinical_dataset.constants import OBS_MAP
 
 def get_lab_data(mrn_map: dict[str, int], data_dir: Optional[str] = None):
     if data_dir is None:

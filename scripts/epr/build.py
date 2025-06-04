@@ -25,7 +25,7 @@ def get_last_seen_dates(data_dir: str):
         'demographic': 'last_contact_date'
     }
     for dataset, date_col in dataset_map.items():
-        df = pd.read_parquet(f'{data_dir}/{dataset}.parquet.gzip')
+        df = pd.read_parquet(f'{data_dir}/{dataset}.parquet')
         last_seen_in_database = df.groupby('mrn')[date_col].max().rename(f'{dataset}_last_seen_date')
         last_seen = pd.concat([last_seen, last_seen_in_database], axis=1)
     last_seen['last_seen_date'] = last_seen.max(axis=1)
@@ -48,39 +48,39 @@ def main():
 
     # symptoms
     dart = get_symptoms_data(data_dir=f'{data_dir}/raw')
-    dart.to_parquet(f'{data_dir}/interim/symptom.parquet.gzip', compression='gzip', index=False)
+    dart.to_parquet(f'{data_dir}/interim/symptom.parquet', compression='zstd', index=False)
 
     # demographics
     canc_reg = get_demographic_data(data_dir=f'{data_dir}/raw')
-    canc_reg.to_parquet(f'{data_dir}/interim/demographic.parquet.gzip', compression='gzip', index=False)
+    canc_reg.to_parquet(f'{data_dir}/interim/demographic.parquet', compression='zstd', index=False)
 
     # treatment
     opis = get_treatment_data(included_drugs, included_regimens, data_dir=f'{data_dir}/raw')
-    opis.to_parquet(f'{data_dir}/interim/treatment.parquet.gzip', compression='gzip', index=False)
+    opis.to_parquet(f'{data_dir}/interim/treatment.parquet', compression='zstd', index=False)
 
     # laboratory tests
     lab = get_lab_data(mrn_map, data_dir=f'{data_dir}/raw')
-    lab.to_parquet(f'{data_dir}/interim/lab.parquet.gzip', compression='gzip', index=False)
+    lab.to_parquet(f'{data_dir}/interim/lab.parquet', compression='zstd', index=False)
 
     # emergency room visits
     er_visit = get_emergency_room_data(data_dir=f'{data_dir}/raw')
-    er_visit.to_parquet(f'{data_dir}/interim/emergency_room_visit.parquet.gzip', compression='gzip', index=False)
+    er_visit.to_parquet(f'{data_dir}/interim/emergency_room_visit.parquet', compression='zstd', index=False)
 
     # radiology reports
     reports = get_radiology_data(mrn_map, data_dir=f'{data_dir}/raw')
-    reports.to_parquet(f'{data_dir}/interim/reports.parquet.gzip', compression='gzip', index=False)
+    reports.to_parquet(f'{data_dir}/interim/reports.parquet', compression='zstd', index=False)
 
     # clinical notes
     clinical_notes = get_clinical_notes_data(data_dir=f'{data_dir}/raw')
-    clinical_notes.to_parquet(f'{data_dir}/data/interim/clinical_notes.parquet.gzip', compression='gzip', index=False)
+    clinical_notes.to_parquet(f'{data_dir}/data/interim/clinical_notes.parquet', compression='zstd', index=False)
 
     # tumor response - COMPASS trial
     recist = get_recist_data(data_dir=f'{data_dir}/external')
-    recist.to_parquet(f'{data_dir}/interim/recist.parquet.gzip', compression='gzip', index=False)
+    recist.to_parquet(f'{data_dir}/interim/recist.parquet', compression='zstd', index=False)
 
     # last seen date in each dataset
     last_seen = get_last_seen_dates(data_dir=f'{data_dir}/interim')
-    last_seen.to_parquet(f'{data_dir}/interim/last_seen_dates.parquet.gzip', compression='gzip')
+    last_seen.to_parquet(f'{data_dir}/interim/last_seen_dates.parquet', compression='zstd')
 
     
 if __name__ == '__main__':
