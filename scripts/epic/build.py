@@ -28,7 +28,7 @@ def main():
 
     # laboratory tests
     lab = get_lab_data(mrn_map, lab_map, data_dir=LAB_DIR)
-    lab.write_parquet(f'{OUTPUT_DIR}/lab.parquet') #TODO: change unify.py to load parquet file, remove gzip compression, convert epr data to ztsd parquet
+    lab.write_parquet(f'{OUTPUT_DIR}/lab.parquet')
 
     # symptoms
     symp = get_symp_data(mrn_map, data_dir=ESAS_DIR)

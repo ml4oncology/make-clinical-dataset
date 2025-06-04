@@ -67,12 +67,12 @@ def main():
             )
 
     if not os.path.exists(output_dir): os.makedirs(output_dir)
-    lab = pd.read_parquet(f'{data_dir}/interim/lab.parquet.gzip')
-    trt = pd.read_parquet(f'{data_dir}/interim/treatment.parquet.gzip')
-    dmg = pd.read_parquet(f'{data_dir}/interim/demographic.parquet.gzip')
-    sym = pd.read_parquet(f'{data_dir}/interim/symptom.parquet.gzip')
-    erv = pd.read_parquet(f'{data_dir}/interim/emergency_room_visit.parquet.gzip')
-    last_seen = pd.read_parquet(f'{data_dir}/interim/last_seen_dates.parquet.gzip')
+    lab = pd.read_parquet(f'{data_dir}/interim/lab.parquet')
+    trt = pd.read_parquet(f'{data_dir}/interim/treatment.parquet')
+    dmg = pd.read_parquet(f'{data_dir}/interim/demographic.parquet')
+    sym = pd.read_parquet(f'{data_dir}/interim/symptom.parquet')
+    erv = pd.read_parquet(f'{data_dir}/interim/emergency_room_visit.parquet')
+    last_seen = pd.read_parquet(f'{data_dir}/interim/last_seen_dates.parquet')
     included_drugs = load_included_drugs(data_dir=f'{data_dir}/external')
     with open(config_path) as file:
         cfg = yaml.safe_load(file)
@@ -112,7 +112,7 @@ def main():
     df = get_symptom_labels(df, sym, lookahead_window=30)
     df = get_CTCAE_labels(df, lab, lookahead_window=30)
     
-    df.to_parquet(f'{output_dir}/{output_filename}.parquet.gzip', compression='gzip', index=False)
+    df.to_parquet(f'{output_dir}/{output_filename}.parquet', compression='zstd', index=False)
     
 if __name__ == '__main__':
     """
