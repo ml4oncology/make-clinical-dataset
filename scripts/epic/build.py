@@ -6,14 +6,13 @@ import os
 
 import pandas as pd
 
+from make_clinical_dataset.constants import ROOT_DIR, INFO_DIR
 from make_clinical_dataset.preprocess.epic.lab import get_lab_data
 from make_clinical_dataset.preprocess.epic.esas import get_symp_data
 from make_clinical_dataset.util import load_lab_map
 
 # Paths and Configurations
 DATE = '2025-03-29'
-ROOT_DIR = '/cluster/projects/gliugroup/2BLAST'
-INFO_DIR = f'{ROOT_DIR}/data/info'
 LAB_DIR = f'{ROOT_DIR}/data/processed/lab/lab_{DATE}'
 ESAS_DIR = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}'
 OUTPUT_DIR = f'{ROOT_DIR}/data/final/data_{DATE}/interim'

@@ -6,11 +6,12 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from tqdm import tqdm
 
+from make_clinical_dataset.config.paths import INFO_DIR, ROOT_DIR
+
 # Configurations
 today = '2025-03-29'
 date = '2025-01-08'
-root_dir = '/cluster/projects/gliugroup/2BLAST'
-data_dir = f'{root_dir}/data/raw/data_pull_{date}/observation_parquet'
+data_dir = f'{ROOT_DIR}/data/raw/data_pull_{date}/observation_parquet'
 
 # Initialize a Spark session
 # Recommended to request the following resources on SLURM:
@@ -83,8 +84,8 @@ df = to_timestamp(df, "last_updated_datetime")
 df = to_timestamp(df, "effective_datetime")
 
 # Separate the data
-proc_codes = pd.read_csv(f'{root_dir}/data/info/proc_codes.csv')
-proc_names = pd.read_csv(f'{root_dir}/data/info/proc_names.csv')
+proc_codes = pd.read_csv(f'{INFO_DIR}/proc_codes.csv')
+proc_names = pd.read_csv(f'{INFO_DIR}/proc_names.csv')
 for category in tqdm(['lab', 'HW', 'ED', 'ESAS']):
     # partition the data with respect to the corresponding category
     codes = proc_codes.query('category == @category')['value'].tolist()
@@ -105,7 +106,7 @@ for category in tqdm(['lab', 'HW', 'ED', 'ESAS']):
     # print(f'{category} dataset size: Num Records: {partition.count()}. Num Patients: {partition.select("patient").distinct().count()}')
 
     # write to disk
-    output_path = f'{root_dir}/data/processed/{category}/{category}_{today}'
+    output_path = f'{ROOT_DIR}/data/processed/{category}/{category}_{today}'
     partition = partition.coalesce(20) # reduce the number of spark partitions to 20
     # partition.write.option("parquet.block.size", 256 * 1024 * 1024).parquet(output_path)
     partition.write.mode("overwrite").parquet(output_path)

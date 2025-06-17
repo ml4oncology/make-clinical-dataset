@@ -1,3 +1,11 @@
+from pathlib import Path
+
+# Paths
+ROOT_DIR = '/cluster/projects/gliugroup/2BLAST'
+SRC_DIR = str(Path(__file__).parent.parent)
+DEFAULT_CONFIG_PATH = f"{SRC_DIR}/config/default.yaml"
+INFO_DIR = f'{ROOT_DIR}/data/info/'
+
 # lab observations
 OBS_MAP = {
     'Hematology': {

@@ -2,11 +2,11 @@ from glob import glob
 import pandas as pd
 from pathlib import Path
 
-root_dir = '/cluster/projects/gliugroup/2BLAST'
+from make_clinical_dataset.config.paths import INFO_DIR
 
 # Centralize the curated procedure names and procedure codes
 mapping = []
-for file in glob(f'{root_dir}/data/info/procs_2022-06-01/*.csv'):
+for file in glob(f'{INFO_DIR}/procs_2022-06-01/*.csv'):
     category = Path(file).stem.split('_', 2)[-1]
     df = pd.read_csv(file, encoding='latin')
     df['Category'] = category
@@ -18,10 +18,10 @@ mapping = mapping.groupby('Code').agg({
     'Description': lambda regs: ' && '.join(sorted(set(regs))),
     'Category': lambda regs: ' && '.join(sorted(set(regs))),
 })
-mapping.to_csv(f'{root_dir}/data/info/code_descs.csv')
+mapping.to_csv(f'{INFO_DIR}/code_descs.csv')
 
 proc_names, proc_codes = [], []
-for file in glob(f'{root_dir}/data/info/procs_2025-03-01/*.csv'):
+for file in glob(f'{INFO_DIR}/procs_2025-03-01/*.csv'):
     category, proc_type = Path(file).stem.split('_', 1)
     df = pd.read_csv(file, header=None).drop_duplicates()
     df['value'] = df.pop(0).astype(str)
@@ -42,5 +42,5 @@ proc_names, proc_codes = pd.concat(proc_names), pd.concat(proc_codes)
 proc_codes['description'] = proc_codes['value'].map(mapping['Description'])
 assert not proc_codes['value'].duplicated().any()
 assert not proc_names['value'].duplicated().any()
-proc_names.to_csv(f'{root_dir}/data/info/proc_names.csv', index=False)
-proc_codes.to_csv(f'{root_dir}/data/info/proc_codes.csv', index=False)
+proc_names.to_csv(f'{INFO_DIR}/proc_names.csv', index=False)
+proc_codes.to_csv(f'{INFO_DIR}/proc_codes.csv', index=False)

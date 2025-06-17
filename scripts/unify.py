@@ -8,6 +8,7 @@ import os
 import pandas as pd
 import yaml
 
+from make_clinical_dataset.constants import DEFAULT_CONFIG_PATH
 from make_clinical_dataset.combine import (
     add_engineered_features,
     combine_demographic_to_main_data, 
@@ -46,7 +47,7 @@ def parse_args():
     )
     parser.add_argument('--output-dir', type=str, default='./data/processed')
     parser.add_argument('--data-dir', type=str, default='./data')
-    parser.add_argument('--config-path', type=str, default='./config.yaml')
+    parser.add_argument('--config-path', type=str, default=DEFAULT_CONFIG_PATH)
     args = parser.parse_args()
     return args
 

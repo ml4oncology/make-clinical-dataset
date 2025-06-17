@@ -12,8 +12,10 @@ import os
 
 import pandas as pd
 
+from make_clinical_dataset.constants import ROOT_DIR
+
 def main():
-    data_root_dir = '/cluster/projects/gliugroup/2BLAST/archive/'
+    data_root_dir = f'{ROOT_DIR}/archive/'
     merged_dir = f'{data_root_dir}/Merged and Cleaned Datasets'
     raw_dir = f'{data_root_dir}/Raw Data'
     biochem_dir = f'{merged_dir}/merged_data/biochemistry'
