@@ -2,7 +2,7 @@ from glob import glob
 import pandas as pd
 from pathlib import Path
 
-from make_clinical_dataset.config.paths import INFO_DIR
+from make_clinical_dataset.constants import INFO_DIR
 
 # Centralize the curated procedure names and procedure codes
 mapping = []
@@ -29,6 +29,8 @@ for file in glob(f'{INFO_DIR}/procs_2025-03-01/*.csv'):
     if category in ['Biochemistry', 'Hematology']:
         df['category'] = 'lab'
         df['sub-category'] = category
+    elif category == 'Radiology':
+        df['category'] = 'radiology'
     else:
         df['category'] = category
         

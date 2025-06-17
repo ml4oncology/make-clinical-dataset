@@ -6,7 +6,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from tqdm import tqdm
 
-from make_clinical_dataset.config.paths import INFO_DIR, ROOT_DIR
+from make_clinical_dataset.constants import INFO_DIR, ROOT_DIR
 
 # Configurations
 today = '2025-03-29'
@@ -86,7 +86,7 @@ df = to_timestamp(df, "effective_datetime")
 # Separate the data
 proc_codes = pd.read_csv(f'{INFO_DIR}/proc_codes.csv')
 proc_names = pd.read_csv(f'{INFO_DIR}/proc_names.csv')
-for category in tqdm(['lab', 'HW', 'ED', 'ESAS']):
+for category in tqdm(['lab', 'HW', 'ED', 'ESAS', 'radiology']):
     # partition the data with respect to the corresponding category
     codes = proc_codes.query('category == @category')['value'].tolist()
     names = proc_names.query('category == @category')['value'].tolist()
