@@ -78,10 +78,6 @@ def filter_lab_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFrame:
     # exclude rows with different unit measurements
     # TODO: basophil is really funky, investigate further
     df = filter_units(df, verbose=verbose)
-
-    # drop last_updated_datetime - only contains null, 2023-06, 2023-01, 2023-10
-    # TODO: remove last_updated_datetime in the separate.py script
-    # df = df.drop("last_updated_datetime")
     
     # keep only useful columns
     df = df.select('mrn', 'obs_val_num', 'obs_name', 'obs_unit', 'obs_datetime')

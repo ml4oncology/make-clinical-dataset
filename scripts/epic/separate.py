@@ -44,9 +44,9 @@ col_map = {
 
     'Observations_Observation_effectiveDateTime': 'effective_datetime',
     'Observations_OccurrenceDateTimeFromOrder': 'occurrence_datetime_from_order',
-    "Observations_Observation_attr_lastModified_0_at": 'last_updated_datetime',
 
     # either duplicate or unnecessary info
+    # 'Observations_Observation_attr_lastModified_0_at': 'last_updated_datetime',
     # 'Observations_Observation_attr_procCode': 'another_proc_code',
     # 'Observations_Observation_attr_procName': 'another_proc_name'
 }
@@ -80,7 +80,6 @@ df = df.withColumn("obs_val_num", F.col("obs_val_num").cast("double"))
 def to_timestamp(df: DataFrame, col: str):
     return df.withColumn(col, F.to_timestamp(F.col(col), "yyyy-MM-dd'T'HH:mm:ssXXX"))
 df = to_timestamp(df, "occurrence_datetime_from_order")
-df = to_timestamp(df, "last_updated_datetime")
 df = to_timestamp(df, "effective_datetime")
 
 # Separate the data
