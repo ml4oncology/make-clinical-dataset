@@ -14,7 +14,7 @@ def get_lab_data(
     lab_map: dict[str, str], 
     data_dir: str | None = None,
     verbose: bool = False
-) -> pl.LazyFrame:
+) -> pl.DataFrame:
     """Load, clean, filter, process lab observation data."""
     if data_dir is None:
         data_dir = './data/raw/lab'
@@ -114,7 +114,7 @@ def filter_units(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFrame:
     return df
 
 
-def process_lab_data(df):
+def process_lab_data(df: pl.LazyFrame) -> pl.DataFrame:
     """Sort and pivot the observation data."""
     df = df.with_columns(
         pl.col("obs_datetime").dt.date().alias("obs_date")
