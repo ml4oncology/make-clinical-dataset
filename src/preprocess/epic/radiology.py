@@ -74,7 +74,7 @@ def process_radiology_data(df: pl.LazyFrame):
     """Process the reports."""
     # Remove useless info for faster inference
     df = df.with_columns(
-        pl.col("obs_val_str").str.replace(END_TEXT, "").alias("processed_text")
+        pl.col("obs_val_str").str.replace(END_TEXT, "", literal=True).alias("processed_text")
     )
     # Replace the following for convenience
     df = df.with_columns(
