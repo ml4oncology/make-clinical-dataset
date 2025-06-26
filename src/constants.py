@@ -133,3 +133,13 @@ MAP_CTCAE_LAB = {
     'neutrophil': 'neutrophil', # Neutrophil count decrease
     'platelet': 'platelet' # Platelet count decrease
 }
+
+# RECIST: Response Evaluation Criteria in Solid Tumors
+# RECIST v1.1: https://ctep.cancer.gov/protocoldevelopment/docs/recist_guideline.pdf
+RECIST_RANKING = {
+    'CR': 5, # complete response
+    'PR': 4, # partial response
+    'SD': 3, # stable disease
+    'PD': 2, # progressive disease
+    'NE': 1 # not evaluable
+}

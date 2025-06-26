@@ -5,6 +5,7 @@ Module to preprocess RECIST (Response evaluation criteria in solid tumors) data 
 from typing import Optional
 
 import pandas as pd
+from make_clinical_dataset.constants import RECIST_RANKING
 
 
 def get_recist_data(data_dir: Optional[str] = None) -> pd.DataFrame:
@@ -42,10 +43,9 @@ def filter_and_process_recist_data(compass_mrns, df: pd.DataFrame) -> pd.DataFra
     # remove rows without a mapped mrn
     df = df[df['mrn'].notnull()]
 
-    # add response ranking 
-    best_response_ranking = {'CR': 5, 'PR': 4, 'SD': 3, 'PD': 2, 'NE': 1}
-    df['overall_response_rank'] = df['overall_response'].map(best_response_ranking)
-    
+    # add response ranking
+    df['overall_response_rank'] = df['overall_response'].map(RECIST_RANKING)
+
     # sort by patient and date
     df = df.sort_values(by=['mrn', 'date'])
     
