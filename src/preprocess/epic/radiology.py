@@ -40,7 +40,7 @@ def clean_radiology_data(df: pl.LazyFrame, mrn_map: dict[str, int]) -> pl.LazyFr
 
     # map the patient ID to mrns
     df = df.with_columns(
-        pl.col("patient").replace(mrn_map)
+        pl.col("patient").replace(mrn_map).cast(pl.Int64)
     ).rename({'patient': 'mrn'})
     
     return df
@@ -133,6 +133,7 @@ def process_radiology_data(df: pl.LazyFrame):
         .join(proc_names, on=["mrn", "processed_text"], how="left")
         .sort(["mrn", "date"])
         .unique(subset=["mrn", "processed_text"], keep="first")
+        .sort(["mrn", "epr_datetime"]) # need to sort again
     )
     
     return df
