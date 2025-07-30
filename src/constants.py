@@ -6,6 +6,74 @@ SRC_DIR = str(Path(__file__).parent.parent)
 DEFAULT_CONFIG_PATH = f"{SRC_DIR}/config/default.yaml"
 INFO_DIR = f'{ROOT_DIR}/data/info/'
 
+# centralized column mappings
+# TODO: deprecate this in favor of model.py
+OPIS_COL_MAP = { # 2023-02-21
+    'Hosp_Chart': 'mrn',
+    'Regimen': 'regimen',
+    'First_Trt_Date': 'first_treatment_date',
+    'Trt_Date': 'treatment_date',
+    'cycle_number': 'cycle_number',
+    'Drug_name': 'drug_name',
+    'REGIMEN_DOSE': 'regimen_dose',
+    'Dose_Given': 'given_dose',
+    'Height': 'height',
+    'Weight': 'weight',
+    'Body_Surface_Area': 'body_surface_area',
+    'Intent': 'intent',
+    'Change_Reason_Desc': 'change_reason_desc',
+    'Route': 'route',
+    'Dose_Ord': 'dose_ordered',
+    'CHEMO_FLAG': 'chemo_flag'
+}
+CHEMO_EPIC_COL_MAP = { # 2025-07-02
+    'PATIENT_RESEARCH_ID': 'patient_id',
+    'treamtment_plan_name': 'regimen',
+    'plan_start_date': 'first_treatment_date',
+    'cycle_start_date': 'treatment_date',
+    'cycle_number': 'cycle_number',
+    'med_id': 'uhn_drug_code', # special UHN drug code
+    'medication_name': 'drug_name',
+    'medication_dose': 'given_dose',
+    'dosing_weight': 'weight',
+    'dosing_height': 'height',
+    'dosing_BSA': 'body_surface_area',
+    'treatment_intent': 'intent',
+}
+CHEMO_PRE_EPIC_COL_MAP = { # 2025-07-02
+    'PATIENT_RESEARCH_ID': 'patient_id',
+    'treatment_plan': 'regimen', # 'treatment_plan',
+    'fist_treatment_date': 'first_treatment_date',
+    'treatment_date': 'treatment_date',
+    'cycle_num': 'cycle_number',
+    'DIN': 'drug_id', # DIN - drug identification number - assigned by Health Canada
+    'fdb_generic_code': 'fdb_drug_code', # FDB - First Databank - world's drug database leader
+    'medication_name': 'drug_name', # 'medication_name',
+    'medication_dose': 'given_dose', # 'medication_dose', # beware some have "nan mg" and need to be combined with dose_ordered
+    'height': 'height',
+    'weight': 'weight',
+    'BSA': 'body_surface_area',
+    'treatment_intent': 'intent',
+    'medication_dose_ordered': 'dose_ordered',
+    'route': 'route',
+    'regimen_link': 'regimen_normalized' # very useful! we want all regimen to follow this format
+}
+RAD_COL_MAP = { # 2025-07-02
+    'PATIENT_RESEARCH_ID': 'patient_id',
+    'TX_Start_Date': 'treatment_start_date',
+    'TX_End_Date': 'treatment_end_date',
+    'Site_Treated': 'site_treated',
+    'Dose_Prescribed': 'dose_prescribed',
+    'Fractions_Prescribed': 'fractions_prescribed',
+    'Dose_Delivered': 'dose_given',
+    'Fractions_Delivered': 'fractions_given',
+    'TX_Intent': 'intent',
+    'Diagnosis_ICD_Code': 'diagnosis_icd_code',
+    'Diagnosis_Description': 'diagnosis_desc',
+    'Diagnosis_Category': 'diagnosis_category',
+    'Morphology': 'morphology'
+}
+
 # lab observations
 OBS_MAP = {
     'Hematology': {
@@ -142,4 +210,12 @@ RECIST_RANKING = {
     'SD': 3, # stable disease
     'PD': 2, # progressive disease
     'NE': 1 # not evaluable
+}
+
+# Intent of treatment
+TRT_INTENT = {
+    'P': 'palliative',
+    'C': 'curative',
+    'A': 'adjuvant',
+    'N': 'neoadjuvant',
 }
