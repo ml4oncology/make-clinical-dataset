@@ -154,5 +154,8 @@ def add_engineered_features(df, date_col: str = 'treatment_date') -> pd.DataFram
     get_days_since_last_treatment = partial(
         get_days_since_last_event, main_date_col=date_col, event_date_col='treatment_date'
     )
-    df['days_since_last_treatment'] = df.groupby('mrn', group_keys=False).apply(get_days_since_last_treatment)
+    if df['mrn'].nunique() == 1:
+        df['days_since_last_treatment'] = get_days_since_last_treatment(df)
+    else:
+        df['days_since_last_treatment'] = df.groupby('mrn', group_keys=False).apply(get_days_since_last_treatment)
     return df

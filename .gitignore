@@ -6,3 +6,4 @@ notebooks/debug
 _*.ipynb
 .*cache
 *.egg-info
+.env

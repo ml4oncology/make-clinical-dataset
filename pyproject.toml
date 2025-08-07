@@ -12,9 +12,10 @@ authors = [
 dependencies = [
     "ml_common @ git+https://github.com/ml4oncology/ml-common.git@v0.1.1",
     "tqdm",
+    "dotenv",
+    "groq",
     "pandas", 
     "pyarrow",
-    "pyspark",
     "pyyaml",
     "pytest",
     "pytest-xdist",

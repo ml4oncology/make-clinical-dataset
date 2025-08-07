@@ -1,14 +1,14 @@
 """
 Module to preprocess OPIS (systemic therapy treatment data)
 """
+import re
 from typing import Optional
 
 import numpy as np
 import pandas as pd
-import re
-
 from make_clinical_dataset.feat_eng import get_line_of_therapy
 from ml_common.util import get_excluded_numbers
+
 
 def get_treatment_data(
     drugs: pd.DataFrame, 
@@ -119,12 +119,12 @@ def filter_drugs(df, drugs: pd.DataFrame):
 # Cleaners
 ###############################################################################
 # regex expressions
-any_digit = '\d'
-any_one_or_more_digit = '\d+'
+any_digit = r'\d'
+any_one_or_more_digit = r'\d+'
 any_char = '[a-zA-Z]'
 any_one_or_more_char = '[a-zA-Z]+'
 any_alphanumeric = '[a-zA-Z0-9]'
-space_or_dash_or_plus = '[ \-+]'
+space_or_dash_or_plus = r'[ \-+]'
 optional = lambda char: f'{char}?'
 either = lambda char1, char2: f'[{char1}|{char2}]'
 not_match = lambda exp: f'(?!{exp})' # negative lookahead
