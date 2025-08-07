@@ -1,8 +1,8 @@
 from typing import Optional
 
 import pandas as pd
-
 from make_clinical_dataset.constants import OBS_MAP
+
 
 ###############################################################################
 # I/O

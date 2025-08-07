@@ -31,6 +31,7 @@ EPIC Flow
 ```bash
 python scripts/epic/curate_procs.py
 python scripts/epic/separate.py
+python scripts epic/ask_groq.py --normalize drugs
 python scripts/epic/build.py
 ```
 
@@ -43,6 +44,7 @@ python scripts/epic/build.py
 │   └── raw            <- The original immutable data dump
 ├── notebooks               <- Jupyter notebooks
 ├── pyproject.toml          <- Build configuration
+├── .env                    <- Environment variables (i.e. personal keys)
 ├── scripts                 <- Python scripts
 └── src                     <- Python package where the main functionality goes
 ```

@@ -9,12 +9,14 @@ and its prescribed dosage and unit.
 import argparse
 import json
 import os
+from glob import glob
 from pathlib import Path
 from typing import Literal, Optional
 
 import pandas as pd
 from dotenv import load_dotenv
 from groq import Groq
+from make_clinical_dataset.constants import ROOT_DIR
 from ml_common.util import load_pickle, save_pickle, save_table
 from pydantic import BaseModel, Field
 from tqdm import tqdm
@@ -22,6 +24,8 @@ from tqdm import tqdm
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+DATE = '2025-07-02'
+DATA_DIR = f'{ROOT_DIR}/data/raw/data_pull_{DATE}'
 
 
 class DrugFormat(BaseModel):
@@ -130,8 +134,21 @@ class GroqPrompter():
         ]
 
 
+def get_all_drugs(output_path: str):
+    paths = sorted(glob(f'{DATA_DIR}/chemo_pre_epic_csv/*.csv'))
+    ct_pre_epic = pd.concat([pd.read_csv(path, encoding='cp1252') for path in paths], ignore_index=True)
+    paths = sorted(glob(f'{DATA_DIR}/chemo_epic_csv/*.csv'))
+    ct_epic = pd.concat([pd.read_csv(path, encoding='cp1252') for path in paths], ignore_index=True)
+    drugs = pd.concat([ct_pre_epic['medication_name'], ct_epic['medication_name']]).value_counts()
+    drugs.to_csv(output_path)
+
+
 def normalize_drugs(data_dir: str):
-    drugs = pd.read_csv(f'{data_dir}/interim/drugs/drug_names.csv')
+    drug_filepath = f'{data_dir}/interim/drugs/drug_names.csv'
+    if not os.path.exists(drug_filepath):
+        get_all_drugs(drug_filepath)
+    drugs = pd.read_csv(drug_filepath)
+
     # INN = International Nonproprietary Names (INN)
     # globally recognized, unique names assigned to pharmaceutical substances
     # Ref: https://www.wcoomd.org/en/topics/nomenclature/instrument-and-tools/tools-to-assist-with-the-classification-in-the-hs/hs_classification-decisions/inn-table.aspx
