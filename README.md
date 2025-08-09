@@ -36,6 +36,8 @@ EPIC Flow
 python scripts/epic/curate_procs.py
 # separate the data dump into individual datasets
 python scripts/epic/separate.py
+# process the independent cancer therapies datasets
+python scripts/epic/process_therapies.py
 # normalize unstructured text fields with groq
 python scripts epic/ask_groq.py --normalize drugs
 # build out the features from each dataset
