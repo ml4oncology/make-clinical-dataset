@@ -7,7 +7,6 @@ We might have to rethink on the relevance of these as features, if we want to us
 import logging
 
 import pandas as pd
-
 from ml_common.util import get_excluded_numbers
 
 logging.basicConfig(
@@ -40,7 +39,7 @@ def get_symp_data(
     """Load, clean, filter, process symptom observation data."""
     if data_dir is None:
         data_dir = './data/raw/ESAS'
-    symp = pd.read_parquet(esas_dir)
+    symp = pd.read_parquet(data_dir)
     symp = clean_symp_data(symp, mrn_map=mrn_map)
     symp = filter_symp_data(symp, verbose=verbose)
     symp = process_symp_data(symp)
@@ -103,7 +102,7 @@ def filter_symp_data(df: pd.DataFrame, verbose: bool = False) -> pd.DataFrame:
     return df
 
 
-def process_lab_data(df):
+def process_symp_data(df):
     """Sort and pivot the observation data."""
     df['obs_date'] = pd.to_datetime(df['obs_datetime'].dt.date)
 

@@ -1,10 +1,10 @@
+"""Centralize the curated procedure names and procedure codes"""
 from glob import glob
-import pandas as pd
 from pathlib import Path
 
+import pandas as pd
 from make_clinical_dataset.constants import INFO_DIR
 
-# Centralize the curated procedure names and procedure codes
 mapping = []
 for file in glob(f'{INFO_DIR}/procs_2022-06-01/*.csv'):
     category = Path(file).stem.split('_', 2)[-1]

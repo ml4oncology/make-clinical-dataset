@@ -1,4 +1,4 @@
-"""Separate the Observation data into ED, ESAS, and lab datasets"""
+"""Separate the Observation data into ED, ESAS, radiology, and lab datasets"""
 import os
 
 import pandas as pd

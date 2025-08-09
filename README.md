@@ -8,7 +8,7 @@ HISTORY:
 Prior to 2022, PMCC was under the EPR system. Now, it migrated to the EPIC system. Thus, there are two pipelines. 
 
 # Data Location
-The external data is located in the Google Drive folder [ml4o/projects/aim2reduce/data](https://drive.google.com/drive/folders/1DcUbnKlEmj0wObx1VMOnPWheBp0szp8r?usp=drive_link). The raw data is located in the HPC4Health cluster hosted by University Health Network. 
+All data is located in the HPC4Health cluster hosted by University Health Network. 
 
 # Getting Started
 ```bash
@@ -22,16 +22,23 @@ nbstripout --install --keep-output
 # Instructions
 EPR Flow
 ```bash
+# convert each dataset from csv to parquet format
 python scripts/epr/csv_to_parquet.py
+# build out the features from each dataset
 python scripts/epr/build.py
+# unify the features into a central dataset
 python scripts/unify.py [OPTIONAL args]
 ```
 
 EPIC Flow
 ```bash
+# curate procedure names/codes into central files
 python scripts/epic/curate_procs.py
+# separate the data dump into individual datasets
 python scripts/epic/separate.py
+# normalize unstructured text fields with groq
 python scripts epic/ask_groq.py --normalize drugs
+# build out the features from each dataset
 python scripts/epic/build.py
 ```
 

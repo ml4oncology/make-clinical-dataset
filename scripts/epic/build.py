@@ -1,12 +1,7 @@
-"""
-Script to turn raw data into features / targets for modelling
-"""
-import argparse
-import os
+"""Script to turn raw data into features / targets for modelling"""
 
 import pandas as pd
-
-from make_clinical_dataset.constants import ROOT_DIR, INFO_DIR
+from make_clinical_dataset.constants import INFO_DIR, ROOT_DIR
 from make_clinical_dataset.preprocess.epic.esas import get_symp_data
 from make_clinical_dataset.preprocess.epic.lab import get_lab_data
 from make_clinical_dataset.preprocess.epic.radiology import get_radiology_data

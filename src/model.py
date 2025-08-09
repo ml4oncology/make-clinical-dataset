@@ -59,7 +59,7 @@ class ChemoPreEpicRecord(BaseModel): # 2025-07-02
     intent: Optional[str] = Field(alias='treatment_intent')
     dose_ordered: Optional[float] = Field(alias='medication_dose_ordered')
     route: Optional[str] = Field(alias='route')
-    regimen_normalized: Optional[str] = Field(alias='regimen_link')  # very useful! we want all regimen to follow this format
+    cco_regimen: Optional[str] = Field(alias='regimen_link')  # very useful! we want all regimen to follow the Cancer Care Ontario format
 
 
 class RadiationRecord(BaseModel):
