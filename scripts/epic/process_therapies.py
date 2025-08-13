@@ -1,8 +1,6 @@
 """Process the chemo and radiation therapy datasets"""
-from glob import glob
-
-import pandas as pd
-from make_clinical_dataset.constants import ROOT_DIR, TRT_INTENT
+import polars as pl
+from make_clinical_dataset.constants import ROOT_DIR
 from make_clinical_dataset.model import (
     CHEMO_EPIC_COL_MAP,
     CHEMO_PRE_EPIC_COL_MAP,
@@ -16,60 +14,84 @@ OUTPUT_DIR = f'{ROOT_DIR}/data/processed/treatment'
 
 
 # Read all CSV files in the folder
-def read_csvs(folder: str) -> pd.DataFrame:
-    paths = sorted(glob(f'{DATA_DIR}/{folder}/*.csv'))
-    return pd.concat([pd.read_csv(path, encoding='cp1252') for path in paths], ignore_index=True)
-ct_pre_epic = read_csvs('chemo_pre_epic_csv')
-ct_epic = read_csvs('chemo_epic_csv')
+def read_csvs(folder):
+    # utf8-lossy can cause data loss, but mostly with non utf8 characters, so not losing out on much
+    # 2025-07-02 - the only character we lost is a non-utf8 em dash (– was replaced with �)
+    return pl.scan_csv(f'{DATA_DIR}/{folder}/*.csv', encoding='utf8-lossy').lazy()
+chemo_pre_epic = read_csvs('chemo_pre_epic_csv')
+chemo_epic = read_csvs('chemo_epic_csv')
 rad = read_csvs('radiation_therapy_csv')
 
 
 # Process the Pre-EPIC chemotherapy
-# rename the columns
-chemo_pre_epic = ct_pre_epic.rename(columns=CHEMO_PRE_EPIC_COL_MAP)
-# clean intent feature
-chemo_pre_epic['intent'] = chemo_pre_epic['intent'].map(TRT_INTENT)
-# cature the department as a separate column
-chemo_pre_epic['department'] = chemo_pre_epic['regimen'].str.split('-').str[0]
-# add data source
-chemo_pre_epic['data_source'] = 'Pre-EPIC'
+chemo_pre_epic = (
+    chemo_pre_epic
+    .rename(CHEMO_PRE_EPIC_COL_MAP)
+    .with_columns([
+        # capture the department as a separate column
+        pl.col('regimen').str.split('-').list.get(0).alias('department'),
+        # add data source
+        pl.lit('Pre-EPIC').alias('data_source'),
+        # fix dtypes
+        pl.col('treatment_date').str.to_datetime(),
+        pl.col('first_treatment_date').str.to_datetime(),
+    ])
+)
+# separate the pre/post chemo care (all are Antiemetic (AE) protocols)
+mask = pl.col('treatment_type').is_in(['Pre', 'Post'])
+pre_post_chemo = chemo_pre_epic.filter(mask)
+chemo_pre_epic = chemo_pre_epic.filter(~mask).drop('treatment_type')
 
 
 # Process the EPIC chemotherapy
-# rename the columns
-chemo_epic = ct_epic.rename(columns=CHEMO_EPIC_COL_MAP)
-# clean intent feature
-chemo_epic['intent'] = chemo_epic['intent'].str.lower()
-# cature the department as a separate column
-chemo_epic['department'] = chemo_epic['regimen'].str.split(' ').str[0]
+chemo_epic = (
+    chemo_epic
+    .rename(CHEMO_EPIC_COL_MAP)
+    .with_columns([
+        # capture the department as a separate column
+        pl.col('regimen').str.split(' ').list.get(0).alias('department'),
+        # add data source
+        pl.lit('EPIC').alias('data_source'),
+        # fix dtypes
+        pl.col("height").cast(pl.Float64),
+        pl.col("cycle_number").cast(pl.Float64),
+        pl.col('treatment_date').str.to_datetime(),
+        pl.col('first_treatment_date').str.to_datetime(),
+    ])
+)
 # filter treatment dates past DATE (are they scheduled treatments?)
-chemo_epic = chemo_epic[chemo_epic['treatment_date'] <= DATE]
-# add data source
-chemo_epic['data_source'] = 'EPIC'
+chemo_epic = chemo_epic.filter(pl.col('treatment_date') <= pl.lit(DATE).cast(pl.Date))
 
 
 # Combine the chemotherapies (Pre-EPIC and EPIC)
-chemo = pd.concat([chemo_pre_epic, chemo_epic], ignore_index=True)
+chemo = pl.concat([chemo_pre_epic, chemo_epic], how="diagonal")
 
 
 # Process the combined chemotherapy
-# convert to datetime
-chemo['treatment_date'] = pd.to_datetime(chemo['treatment_date'])
-chemo['first_treatment_date'] = pd.to_datetime(chemo['first_treatment_date'])
 # replace departments that did not exist pre-epic as None
-mask = chemo['department'].isin(chemo_pre_epic['department'])
-chemo.loc[~mask, 'department'] = None
-
+pre_epic_deps = chemo_pre_epic.select(
+    pl.col("department").unique()
+).collect().to_numpy().flatten()
+chemo = chemo.with_columns(
+    pl.when(pl.col("department").is_in(pre_epic_deps))
+    .then(pl.col("department"))
+    .otherwise(None)
+)
 
 # Process the radiation therapy
-rad = rad.rename(columns=RAD_COL_MAP)
-rad['treatment_start_date'] = pd.to_datetime(rad['treatment_start_date'])
-rad['treatment_end_date'] = pd.to_datetime(rad['treatment_end_date'])
-
+rad = (
+    rad
+    .rename(RAD_COL_MAP)
+    .with_columns([
+        pl.col('treatment_start_date').str.to_datetime(),
+        pl.col('treatment_end_date').str.to_datetime(),
+    ])
+)
 
 # Write chemotherapy dataset
-chemo.to_parquet(f'{OUTPUT_DIR}/chemo_{DATE}.parquet', compression='zstd', index=False)
-
+# TODO: why does sink_parquet hangs? seems its due to collecting beforehand...
+chemo.collect().write_parquet(f'{OUTPUT_DIR}/chemo_{DATE}.parquet')
+pre_post_chemo.collect().write_parquet(f'{OUTPUT_DIR}/pre_post_chemo_{DATE}.parquet')
 
 # Write radiation therapy dataset
-rad.to_parquet(f'{OUTPUT_DIR}/radiation_{DATE}.parquet', compression='zstd', index=False)
+rad.collect().write_parquet(f'{OUTPUT_DIR}/radiation_{DATE}.parquet')

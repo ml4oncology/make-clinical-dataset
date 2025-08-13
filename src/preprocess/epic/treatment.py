@@ -1,10 +1,34 @@
 import pandas as pd
 
 ###############################################################################
-# Cleaners
+# Helpers
 ###############################################################################
-def clean_dosage(df: pd.DataFrame) -> pd.DataFrame:
-    # Clean the dosing feature
+def collapse_antiemetic_regimens(df: pd.DataFrame) -> pd.DataFrame:
+    """Collapse various AE regimens into a single "AE" regimen
+    e.g. AE-APREP80;DEX2BID+OLA => AE
+    
+    AE regimens are antiemetic protocols that are paired with chemo regimens to prevent chemo-induced nausea/vomiting.
+    All drugs under AE are supportive.
+
+    Common abbreviations, courtesy of ChatGPT
+    | Abbrev          | Drug name        | Drug class                              |
+    | --------------- | ---------------- | --------------------------------------- |
+    | D / DEX         | Dexamethasone    | Corticosteroid                          |
+    | APREP           | Aprepitant       | NK1 receptor antagonist                 |
+    | OLA             | Olanzapine       | Atypical antipsychotic (antiemetic use) |
+    | PRO             | Prochlorperazine | Dopamine antagonist                     |
+    | G / GRA         | Granisetron      | 5-HT3 receptor antagonist               |
+    | PALO            | Palonosetron     | 5-HT3 receptor antagonist               |
+    | METO            | Metoclopramide   | Dopamine antagonist                     |
+    | OND             | Ondansetron      | 5-HT3 receptor antagonist               |
+    """
+    mask = df["department"] == "AE"
+    df.loc[mask, "regimen"] = "AE"
+    return df
+
+
+def process_dosage(df: pd.DataFrame) -> pd.DataFrame:
+    """Process the dosing feature"""
     df['given_dose'] = df['given_dose'].apply(_clean_dosage)
     
     # Discard rows where given_dose does not match the following pattern. Only makes up ~0.26% of the dataset.
