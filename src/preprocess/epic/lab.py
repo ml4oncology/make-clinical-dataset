@@ -1,13 +1,9 @@
 """
 Module to preprocess laboratory test data, which includes hematology and biochemistry data
 """
-from typing import Optional
-
-import pandas as pd
 import polars as pl
+from make_clinical_dataset.util import get_excluded_numbers
 
-from make_clinical_dataset import logger
-from make_clinical_dataset.constants import OBS_MAP
 
 def get_lab_data(
     mrn_map: dict[str, str], 
@@ -143,12 +139,3 @@ def process_lab_data(df: pl.LazyFrame) -> pl.DataFrame:
     )
     
     return df
-
-
-###############################################################################
-# Helpers
-###############################################################################
-def get_excluded_numbers(df: pl.LazyFrame, mask: pl.Expr, context: str = ".") -> None:
-    """Report the number of rows that were excluded"""
-    mean, count = df.select(mask.mean()).collect().item(), df.select(mask.sum()).collect().item()
-    logger.info(f'Removing {count} ({mean*100:0.3f}%) rows{context}')

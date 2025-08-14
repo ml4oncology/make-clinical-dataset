@@ -15,6 +15,7 @@ dependencies = [
     "dotenv",
     "groq",
     "pandas", 
+    "polars",
     "pyarrow",
     "pyyaml",
     "pytest",
