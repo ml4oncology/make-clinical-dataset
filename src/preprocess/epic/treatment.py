@@ -1,24 +1,35 @@
 import pandas as pd
 import polars as pl
+from make_clinical_dataset import logger
 from make_clinical_dataset.constants import TRT_INTENT
 from make_clinical_dataset.util import get_excluded_numbers
 
 
-def clean_treatment_data(
-    df: pl.LazyFrame, 
+def get_treatment_data(
+    filepath: str,
     id_to_mrn: dict[str, int], 
-    drug_map: pl.LazyFrame
-) -> pl.LazyFrame:
-    #TODO: move mapping out of clean
+    drug_map: pl.LazyFrame, 
+    verbose: bool = False
+) -> pl.DataFrame | pl.LazyFrame:
+    """Load, clean, filter, process treatment data."""
+    df = pl.read_parquet(filepath).lazy()
+
     # map the patient ID to mrns
     df = df.with_columns(
         pl.col("patient_id").replace_strict(id_to_mrn).alias("mrn")
     ).drop('patient_id')
-    #TODO: move mapping out of clean
+
     # map the normalized drug names
     df = df.rename({"drug_name": "orig_drug_name"})
     df = df.join(drug_map, on="orig_drug_name", how="left")
 
+    df = clean_treatment_data(df)
+    df = filter_treatment_data(df, verbose=verbose)
+    df = process_treatment_data(df, verbose=verbose)
+    return df
+
+
+def clean_treatment_data(df: pl.LazyFrame) -> pl.LazyFrame:
     # clean up features
     df = df.with_columns([
         # clean up the Cancer Care Ontario regimen entries
@@ -55,7 +66,7 @@ def filter_treatment_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFra
     return df
 
 
-def process_treatment_data(df: pl.LazyFrame) -> pl.LazyFrame:
+def process_treatment_data(df: pl.LazyFrame, verbose: bool = False) -> pl.DataFrame | pl.LazyFrame:
     # process given dosage information
     df = process_given_dosage(df)
 
@@ -88,6 +99,10 @@ def process_treatment_data(df: pl.LazyFrame) -> pl.LazyFrame:
         'first_treatment_date', 'cycle_number', 'data_source', 
     ]
     df = df.select(cols)
+
+    # process duplicates
+    df = df.unique() # remove exact duplicates post-processing
+    df = merge_partial_duplicates(df, verbose=verbose)
 
     # sort the data
     df = df.sort(by=['mrn', 'treatment_date', 'drug_name'])
@@ -154,6 +169,44 @@ def process_given_dosage(df: pl.LazyFrame) -> pl.LazyFrame:
     df = df.with_columns(
         pl.col("given_dose").cast(pl.Float64)
     )
+    return df
+
+
+def merge_partial_duplicates(df: pl.LazyFrame, verbose: bool = False) -> pl.DataFrame | pl.LazyFrame:
+    """Merge partial duplicate rows and aggregate their non-duplicate info"""
+    if verbose:
+        df = df.collect() # need to be in eager mode to get the size
+        prev_size = df.shape[0]
+        col_names = df.columns
+    else:
+        col_names = df.collect_schema().names()
+
+    # collapse rows where everything matches except given_dose and dose_ordered
+    # sum up the dosages
+    cols = [col for col in col_names if col not in ['given_dose', 'dose_ordered']]
+    df = df.group_by(cols).agg([
+        pl.col("given_dose").sum().alias("given_dose"),
+        pl.col("dose_ordered").sum().alias("dose_ordered")
+    ])
+    if verbose:
+        count = prev_size - df.shape[0]
+        logger.info('Merged partial duplicates with different dosage fields for '
+                    f'{count} ({(count)/(prev_size)*100:0.3f}%) rows')
+        prev_size = df.shape[0]
+
+    # collapse rows where everything matches except body_surface_area, height, and weight
+    # average the body measurements
+    cols = [col for col in col_names if col not in ['body_surface_area', 'height', 'weight']]
+    df = df.group_by(cols).agg([
+        pl.col("body_surface_area").mean().alias("body_surface_area"),
+        pl.col("height").mean().alias("height"),
+        pl.col("weight").mean().alias("weight")
+    ])
+    if verbose:
+        count = prev_size - df.shape[0]
+        logger.info('Merged partial duplicate with different body measurements for '
+                    f'{count} ({(count)/(prev_size)*100:0.3f}%) rows')
+
     return df
 
 
