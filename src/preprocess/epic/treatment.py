@@ -56,6 +56,9 @@ def filter_treatment_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFra
 
 
 def process_treatment_data(df: pl.LazyFrame) -> pl.LazyFrame:
+    # process given dosage information
+    df = process_given_dosage(df)
+
     # fill missing route entries
     route_map = {
         "IV": " IV ",
@@ -75,16 +78,16 @@ def process_treatment_data(df: pl.LazyFrame) -> pl.LazyFrame:
         )
 
     # reorder select columns
-    # cols = [
-    #     'mrn', 'treatment_date',
-    #     'drug_name', 'orig_drug_name', 'drug_type', 'drug_dose', 'drug_unit',
-    #     'given_dose', 'given_dose_unit', 'dose_ordered', 'route',
-    #     'drug_id', 'fdb_drug_code', 'uhn_drug_code',
-    #     'cco_regimen', 'regimen', 'department', 'intent',
-    #     'body_surface_area', 'height', 'weight',
-    #     'first_treatment_date', 'cycle_number', 'data_source', 
-    # ]
-    # df = df.select(cols)
+    cols = [
+        'mrn', 'treatment_date',
+        'drug_name', 'orig_drug_name', 'drug_type', 'drug_dose', 'drug_unit',
+        'given_dose', 'given_dose_unit', 'dose_ordered', 'route',
+        'drug_id', 'fdb_drug_code', 'uhn_drug_code',
+        'cco_regimen', 'regimen', 'department', 'intent',
+        'body_surface_area', 'height', 'weight',
+        'first_treatment_date', 'cycle_number', 'data_source', 
+    ]
+    df = df.select(cols)
 
     # sort the data
     df = df.sort(by=['mrn', 'treatment_date', 'drug_name'])
@@ -95,55 +98,63 @@ def process_treatment_data(df: pl.LazyFrame) -> pl.LazyFrame:
 ###############################################################################
 # Helpers
 ###############################################################################
-def process_dosage(df: pd.DataFrame) -> pd.DataFrame:
-    """Process the dosing feature"""
-    df['given_dose'] = df['given_dose'].apply(_clean_dosage)
+def process_given_dosage(df: pl.LazyFrame) -> pl.LazyFrame:
+    """Process the given dosage information, split them into value and unit"""
+    # Clean the dosing feature
+    custom_dose_map = {
+        "125 mg (1)- 80 mg (2)": "125 mg",
+        "4 gram/5 gram": "4.5 gram"
+    }
+    for old, new in custom_dose_map.items():
+        df = df.with_columns(
+            pl.when(pl.col("given_dose") == old)
+              .then(pl.lit(new))
+              .otherwise(pl.col("given_dose"))
+              .alias("given_dose")
+        )
+    df = df.with_columns(
+        pl.col("given_dose")
+        # Remove surrounding parentheses
+        .str.strip_chars("()")
+        # Remove commas in numbers (e.g., 1,000 → 1000)
+        .str.replace_all(r',000', '000', literal=False)
+        # Insert space before % ONLY IF not already spaced (e.g., "0.9%" → "0.9 %")
+        .str.replace_all(r'(\d)%', r'$1 %', literal=False)
+        # Remove space in denominator (e.g., "300 mcg/0.5 mL" → "300 mcg/0.5mL")
+        .str.replace_all(r'(/[\d.]+) (\w+)', r'$1$2', literal=False)
+    )
     
-    # Discard rows where given_dose does not match the following pattern. Only makes up ~0.26% of the dataset.
+    # Discard rows where given_dose does not match the following pattern. Only makes up ~0.35% of the dataset.
     # (i.e. first dilution, placebo, dosing for two drugs at once, etc)
     pattern1 = r'^\d+(?:\.\d+)?\s[\w/.\-%²μ]+$' # regex pattern for "<num> <unit>", where unit can be mg, mg/mL, etc
     pattern2 = r'nan\s[\w/.\-%²μ]+$' # regex pattern for "nan <unit>", where unit can be mg, mg/mL, etc
-    mask = df['given_dose'].str.match(pattern1, na=True) | df['given_dose'].str.match(pattern2, na=True)
-    # print(df.loc[~mask, 'given_dose'].unique())
-    df = df[mask].copy()
+    df = df.filter(
+        pl.col("given_dose").str.contains(pattern1, literal=False) |
+        pl.col("given_dose").str.contains(pattern2, literal=False) |
+        pl.col("given_dose").is_null() # keep rows with missing dosages for now
+    )
     
-    # Separate into its value and unit component
-    df[['given_dose', 'given_dose_unit']] = df['given_dose'].str.split(' ', expand=True)
+    # Split into value and unit
+    df = df.with_columns(
+        pl.col("given_dose").str.split(" ").alias("split")
+    ).with_columns([
+        pl.col("split").list.get(0).alias("given_dose"),
+        pl.col("split").list.get(1).alias("given_dose_unit"),
+    ]).drop("split")
     
-    # Fill nan with the ordered dose
-    mask = df['given_dose'] == 'nan'
-    df.loc[mask, 'given_dose'] = df.loc[mask, 'dose_ordered']
+    # Fill "nan" values with dose_ordered
+    df = df.with_columns(
+        pl.when(pl.col("given_dose") == "nan")
+          .then(pl.col("dose_ordered"))
+          .otherwise(pl.col("given_dose"))
+          .alias("given_dose")
+    )
     
     # Convert to float
-    df['given_dose'] = df['given_dose'].astype(float)
-
+    df = df.with_columns(
+        pl.col("given_dose").cast(pl.Float64)
+    )
     return df
-
-
-def _clean_dosage(text: str) -> str:
-    if pd.isna(text): 
-        return None
-
-    # Special case
-    if text == "125 mg (1)- 80 mg (2)":
-        return "125 mg"
-
-    # Remove surrounding parentheses
-    if text.startswith('(') and text.endswith(')'):
-        text = text[1:-1]
-
-    # Remove commas in numbers (e.g., 1,000 → 1000)
-    text = text.replace(',000', '000')
-
-    # Insert space before % ONLY IF not already spaced (e.g., "0.9%" → "0.9 %")
-    if '%' in text and ' ' not in text:
-        text = text.replace('%', ' %')
-
-    # Remove space in denominator (e.g., "300 mcg/0.5 mL" → "300 mcg/0.5mL")
-    if '/' in text and text[-3] == ' ':
-        text = text[:-3] + text[-2:]
-        
-    return text
 
 
 # NOTE: not used anymore, can be deprecated
