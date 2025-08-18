@@ -32,7 +32,7 @@ ESAS_MAP = {
 
 
 def get_symp_data(
-    mrn_map: dict[str, str], 
+    id_to_mrn: dict[str, str], 
     data_dir: str | None = None,
     verbose: bool = False
 ) -> pd.DataFrame:
@@ -40,13 +40,13 @@ def get_symp_data(
     if data_dir is None:
         data_dir = './data/raw/ESAS'
     symp = pd.read_parquet(data_dir)
-    symp = clean_symp_data(symp, mrn_map=mrn_map)
+    symp = clean_symp_data(symp, id_to_mrn=id_to_mrn)
     symp = filter_symp_data(symp, verbose=verbose)
     symp = process_symp_data(symp)
     return symp
 
 
-def clean_symp_data(df: pd.DataFrame, mrn_map: dict[str, int]) -> pd.DataFrame:
+def clean_symp_data(df: pd.DataFrame, id_to_mrn: dict[str, int]) -> pd.DataFrame:
     """Clean and rename column names and entries. 
     
     Merge same columns together.
@@ -56,8 +56,8 @@ def clean_symp_data(df: pd.DataFrame, mrn_map: dict[str, int]) -> pd.DataFrame:
     df['obs_val'] = df.pop('obs_val_str').fillna(df.pop('obs_val_num'))
     
     # map the patient ID to mrns
-    df['mrn'] = df.pop('patient').map(mrn_map)
-    
+    df['mrn'] = df.pop('patient').map(id_to_mrn)
+
     # rename the columns
     df = df.rename(columns={'occurrence_datetime_from_order': 'obs_datetime'})
     

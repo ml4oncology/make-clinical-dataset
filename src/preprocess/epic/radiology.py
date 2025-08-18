@@ -1,17 +1,13 @@
 """
 Module to preprocess radiology report data, which includes CT Scans, X-rays, Ultrasounds, etc
 """
-from typing import Optional
-
 from datetime import datetime
-import pandas as pd
+
 import polars as pl
 
-from make_clinical_dataset import logger
-from make_clinical_dataset.constants import OBS_MAP
 
 def get_radiology_data(
-    mrn_map: dict[str, str], 
+    id_to_mrn: dict[str, str], 
     data_dir: str | None = None,
     verbose: bool = False
 ) -> pl.DataFrame:
@@ -20,13 +16,13 @@ def get_radiology_data(
         data_dir = './data/raw/radiology'
     # NOTE: df["COL"] only works in eager mode, use pl.col("COL") in lazy mode
     rad = pl.read_parquet(f'{data_dir}/*.parquet').lazy()
-    rad = clean_radiology_data(rad, mrn_map=mrn_map)
+    rad = clean_radiology_data(rad, id_to_mrn=id_to_mrn)
     rad = filter_radiology_data(rad, verbose=verbose)
     rad = process_radiology_data(rad)
     return rad.collect()
 
 
-def clean_radiology_data(df: pl.LazyFrame, mrn_map: dict[str, int]) -> pl.LazyFrame:
+def clean_radiology_data(df: pl.LazyFrame, id_to_mrn: dict[str, int]) -> pl.LazyFrame:
     """Clean and rename column names and entries. 
     
     Merge same columns together.
@@ -40,7 +36,7 @@ def clean_radiology_data(df: pl.LazyFrame, mrn_map: dict[str, int]) -> pl.LazyFr
 
     # map the patient ID to mrns
     df = df.with_columns(
-        pl.col("patient").replace(mrn_map).cast(pl.Int64)
+        pl.col("patient").replace(id_to_mrn).cast(pl.Int64)
     ).rename({'patient': 'mrn'})
     
     return df

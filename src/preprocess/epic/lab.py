@@ -6,7 +6,7 @@ from make_clinical_dataset.util import get_excluded_numbers
 
 
 def get_lab_data(
-    mrn_map: dict[str, str], 
+    id_to_mrn: dict[str, str], 
     lab_map: dict[str, str], 
     data_dir: str | None = None,
     verbose: bool = False
@@ -16,13 +16,13 @@ def get_lab_data(
         data_dir = './data/raw/lab'
     # NOTE: df["COL"] only works in eager mode, use pl.col("COL") in lazy mode
     lab = pl.read_parquet(f'{data_dir}/*.parquet').lazy()
-    lab = clean_lab_data(lab, mrn_map=mrn_map, lab_map=lab_map)
+    lab = clean_lab_data(lab, id_to_mrn=id_to_mrn, lab_map=lab_map)
     lab = filter_lab_data(lab, verbose=verbose)
     lab = process_lab_data(lab)
     return lab
 
 
-def clean_lab_data(df: pl.LazyFrame, mrn_map: dict[str, int], lab_map: dict[str, str]) -> pl.LazyFrame:
+def clean_lab_data(df: pl.LazyFrame, id_to_mrn: dict[str, int], lab_map: dict[str, str]) -> pl.LazyFrame:
     """Clean and rename column names and entries. 
     
     Merge same columns together.
@@ -35,7 +35,7 @@ def clean_lab_data(df: pl.LazyFrame, mrn_map: dict[str, int], lab_map: dict[str,
 
     # map the patient ID to mrns
     df = df.with_columns(
-        pl.col("patient").replace(mrn_map)
+        pl.col("patient").replace(id_to_mrn)
     ).rename({'patient': 'mrn'})
 
     # rename the observations

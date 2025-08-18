@@ -5,13 +5,13 @@ from make_clinical_dataset.constants import TRT_INTENT
 from make_clinical_dataset.util import get_excluded_numbers
 
 
-def get_treatment_data(
+def get_chemo_data(
     filepath: str,
     id_to_mrn: dict[str, int], 
     drug_map: pl.LazyFrame, 
     verbose: bool = False
 ) -> pl.DataFrame | pl.LazyFrame:
-    """Load, clean, filter, process treatment data."""
+    """Load, clean, filter, process chemotherapy data."""
     df = pl.read_parquet(filepath).lazy()
 
     # map the patient ID to mrns
@@ -23,13 +23,13 @@ def get_treatment_data(
     df = df.rename({"drug_name": "orig_drug_name"})
     df = df.join(drug_map, on="orig_drug_name", how="left")
 
-    df = clean_treatment_data(df)
-    df = filter_treatment_data(df, verbose=verbose)
-    df = process_treatment_data(df, verbose=verbose)
+    df = clean_chemo_data(df)
+    df = filter_chemo_data(df, verbose=verbose)
+    df = process_chemo_data(df, verbose=verbose)
     return df
 
 
-def clean_treatment_data(df: pl.LazyFrame) -> pl.LazyFrame:
+def clean_chemo_data(df: pl.LazyFrame) -> pl.LazyFrame:
     # clean up features
     df = df.with_columns([
         # clean up the Cancer Care Ontario regimen entries
@@ -40,7 +40,7 @@ def clean_treatment_data(df: pl.LazyFrame) -> pl.LazyFrame:
     return df
 
 
-def filter_treatment_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFrame:
+def filter_chemo_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFrame:
     # drop duplicates
     df = df.unique()
 
@@ -66,7 +66,7 @@ def filter_treatment_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFra
     return df
 
 
-def process_treatment_data(df: pl.LazyFrame, verbose: bool = False) -> pl.DataFrame | pl.LazyFrame:
+def process_chemo_data(df: pl.LazyFrame, verbose: bool = False) -> pl.DataFrame | pl.LazyFrame:
     # process given dosage information
     df = process_given_dosage(df)
 
@@ -184,10 +184,13 @@ def merge_partial_duplicates(df: pl.LazyFrame, verbose: bool = False) -> pl.Data
     # collapse rows where everything matches except given_dose and dose_ordered
     # sum up the dosages
     cols = [col for col in col_names if col not in ['given_dose', 'dose_ordered']]
-    df = df.group_by(cols).agg([
+    mask = pl.col("given_dose").is_null() # don't convert missing values to 0
+    df1, df2 = df.filter(~mask), df.filter(mask)
+    df1 = df1.group_by(cols).agg([
         pl.col("given_dose").sum().alias("given_dose"),
         pl.col("dose_ordered").sum().alias("dose_ordered")
     ])
+    df = pl.concat([df1, df2], how="diagonal")
     if verbose:
         count = prev_size - df.shape[0]
         logger.info('Merged partial duplicates with different dosage fields for '
