@@ -5,6 +5,37 @@ from make_clinical_dataset.constants import TRT_INTENT
 from make_clinical_dataset.util import get_excluded_numbers
 
 
+###############################################################################
+# Radiation therapy
+###############################################################################
+def get_radiation_data(
+    filepath: str,
+    id_to_mrn: dict[str, int],
+) -> pd.DataFrame:
+    """Load, clean, filter, process radiation therapy data."""
+    df = pd.read_parquet(filepath)
+
+    # map the patient ID to mrns
+    df['mrn'] = df.pop('patient_id').map(id_to_mrn)
+
+    # clean up intent
+    df['intent'] = df['intent'].str.lower()
+
+    # reorder the columns
+    cols = [
+        'mrn', 'treatment_start_date', 'treatment_end_date', 'intent', 
+        'dose_given', 'fractions_given', 'dose_prescribed', 'fractions_prescribed', 
+        'diagnosis_icd_code', 'diagnosis_desc', 'diagnosis_category', 
+        'morphology', 'site_treated', 'technique', 
+    ]
+    df = df[cols]
+
+    return df
+
+
+###############################################################################
+# Chemotherapy
+###############################################################################
 def get_chemo_data(
     filepath: str,
     id_to_mrn: dict[str, int], 

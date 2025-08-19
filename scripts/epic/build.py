@@ -6,12 +6,16 @@ from make_clinical_dataset.constants import INFO_DIR, ROOT_DIR
 from make_clinical_dataset.preprocess.epic.esas import get_symp_data
 from make_clinical_dataset.preprocess.epic.lab import get_lab_data
 from make_clinical_dataset.preprocess.epic.radiology import get_radiology_data
-from make_clinical_dataset.preprocess.epic.treatments import get_chemo_data
+from make_clinical_dataset.preprocess.epic.treatment import (
+    get_chemo_data,
+    get_radiation_data,
+)
 from make_clinical_dataset.util import load_lab_map
 
 # Paths and Configurations
 DATE = '2025-07-02'
 CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
+RT_PATH = f'{ROOT_DIR}/data/processed/treatment/radiation_{DATE}.parquet'
 
 DATE = '2025-03-29'
 LAB_DIR = f'{ROOT_DIR}/data/processed/lab/lab_{DATE}'
@@ -38,6 +42,8 @@ def main():
     chemo = get_chemo_data(CHEMO_PATH, id_to_mrn, drug_map)
     chemo.sink_parquet(f'{OUTPUT_DIR}/chemo.parquet')
     # chemo.to_parquet(f'{OUTPUT_DIR}/chemo.parquet')
+    rad = get_radiation_data(RT_PATH, id_to_mrn)
+    rad.to_parquet(f'{OUTPUT_DIR}/radiation.parquet', compression='zstd', index=False)
 
     # symptoms
     symp = get_symp_data(id_to_mrn, data_dir=ESAS_DIR)
