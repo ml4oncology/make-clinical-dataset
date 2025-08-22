@@ -36,6 +36,7 @@ class ChemoEpicRecord(BaseModel): # 2025-07-02
     cycle_number: Optional[int] = Field(alias='cycle_number')
     uhn_drug_code: Optional[int] = Field(alias='med_id') # special UHN drug code
     drug_name: str = Field(alias='medication_name')
+    drug_name_ext: str = Field(alias='generic_name') # need to merge the drug names together
     given_dose: Optional[str] = Field(alias='medication_dose')
     weight: Optional[float] = Field(alias='dosing_weight')
     height: Optional[float] = Field(alias='dosing_height')
