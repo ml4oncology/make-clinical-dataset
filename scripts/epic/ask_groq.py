@@ -139,6 +139,7 @@ def get_all_drugs(output_path: str):
     ct_pre_epic = pd.concat([pd.read_csv(path, encoding='cp1252') for path in paths], ignore_index=True)
     paths = sorted(glob(f'{DATA_DIR}/chemo_epic_csv/*.csv'))
     ct_epic = pd.concat([pd.read_csv(path, encoding='cp1252') for path in paths], ignore_index=True)
+    ct_epic['medication_name'] = ct_epic['medication_name'] + (' - ' + ct_epic['generic_name']).fillna('')
     drugs = pd.concat([ct_pre_epic['medication_name'], ct_epic['medication_name']]).value_counts()
     drugs.to_csv(output_path)
 

@@ -55,14 +55,14 @@ chemo_epic = (
         # merge drug names together
         pl.concat_str(
             [pl.col("drug_name"), pl.col("drug_name_ext")], separator=" - ", ignore_nulls=True
-        ).alias("drug_name"),
+        ).alias("drug_name_ext"),
         # fix dtypes
         pl.col("height").cast(pl.Float64),
         pl.col("cycle_number").cast(pl.Float64),
         pl.col('treatment_date').str.to_datetime(),
         pl.col('first_treatment_date').str.to_datetime(),
     ])
-    .drop(['drug_name_ext', 'generic_name_strength']) # generic_name_strength is the same as given_dose
+    .drop(['generic_name_strength']) # generic_name_strength is the same as given_dose
 )
 # filter treatment dates past DATE (are they scheduled treatments?)
 chemo_epic = chemo_epic.filter(pl.col('treatment_date') <= pl.lit(DATE).cast(pl.Date))
