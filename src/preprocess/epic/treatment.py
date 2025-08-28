@@ -75,6 +75,12 @@ def filter_chemo_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFrame:
     # drop duplicates
     df = df.unique()
 
+    # drop rows without treatment date
+    mask = pl.col('treatment_date').is_not_null()
+    if verbose:
+        get_excluded_numbers(df, mask=~mask, context=" without a treatment date")
+    df = df.filter(mask)
+
     # drop rows without mapped drug name
     mask = pl.col('drug_name').is_not_null()
     if verbose:
