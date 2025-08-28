@@ -13,7 +13,7 @@ All data is located in the HPC4Health cluster hosted by University Health Networ
 # Getting Started
 ```bash
 git clone https://github.com/ml4oncology/make-clinical-dataset
-pip install -e .
+pip install -e ".[dev]"
 
 # optional
 nbstripout --install --keep-output
@@ -23,25 +23,25 @@ nbstripout --install --keep-output
 EPR Flow
 ```bash
 # convert each dataset from csv to parquet format
-python scripts/epr/csv_to_parquet.py
+python epr/scripts/csv_to_parquet.py
 # build out the features from each dataset
-python scripts/epr/build.py
+python epr/scripts/build.py
 # unify the features into a central dataset
-python scripts/unify.py [OPTIONAL args]
+python epr/scripts/unify.py [OPTIONAL args]
 ```
 
 EPIC Flow
 ```bash
 # curate procedure names/codes into central files
-python scripts/epic/curate_procs.py
+python epic/scripts/curate_procs.py
 # separate the data dump into individual datasets
-python scripts/epic/separate.py
+python epic/scripts/separate.py
 # process the independent cancer therapies datasets
-python scripts/epic/process_therapies.py
+python epic/scripts/process_therapies.py
 # normalize unstructured text fields with groq
-python scripts epic/ask_groq.py --normalize drugs
+python epic/scripts/ask_groq.py --normalize drugs
 # build out the features from each dataset
-python scripts/epic/build.py
+python epic/scripts/build.py
 ```
 
 # Project Organization
@@ -51,9 +51,16 @@ python scripts/epic/build.py
 │   ├── interim        <- Intermediate data that has been transformed
 │   ├── processed      <- The final unified data sets
 │   └── raw            <- The original immutable data dump
-├── notebooks               <- Jupyter notebooks
+├── epic
+│   ├── notebooks      <- Jupyter notebooks
+│   ├── scripts        <- Python scripts
+│   └── src            <- Python package where the main functionality goes
+├── epr
+│   ├── notebooks
+│   ├── scripts
+│   └── src
+├── shared             <- shared modules between epic and epr
+├── config             <- configuration files
 ├── pyproject.toml          <- Build configuration
 ├── .env                    <- Environment variables (i.e. personal keys)
-├── scripts                 <- Python scripts
-└── src                     <- Python package where the main functionality goes
 ```

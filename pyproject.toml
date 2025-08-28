@@ -18,10 +18,16 @@ dependencies = [
     "polars",
     "pyarrow",
     "pyyaml",
-    "pytest",
-    "pytest-xdist",
-    "nbstripout"
 ]
 
-[tool.setuptools]
-package-dir = {"make_clinical_dataset" = "src"}
+[project.optional-dependencies]
+dev = [
+    "nbstripout",
+    "pytest",
+    "pytest-xdist",
+]
+
+[tool.setuptools.package-dir]
+"make_clinical_dataset.epic" = "epic/src"
+"make_clinical_dataset.epr" = "epr/src"
+"make_clinical_dataset.shared" = "shared"

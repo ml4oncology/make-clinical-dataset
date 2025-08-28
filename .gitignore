@@ -2,7 +2,7 @@
 **/__pycache__
 .DS_store
 data/
-notebooks/debug
+debug/
 _*.ipynb
 .*cache
 *.egg-info
