@@ -2,11 +2,15 @@
 Module to extract labels
 """
 import pandas as pd
-
-from make_clinical_dataset.shared.constants import CTCAE_CONSTANTS, MAP_CTCAE_LAB
-
-from ml_common.anchor import combine_meas_to_main_data, merge_closest_measurements
-from ml_common.constants import SYMP_COLS
+from make_clinical_dataset.epr.combine import (
+    combine_meas_to_main_data,
+    merge_closest_measurements,
+)
+from make_clinical_dataset.shared.constants import (
+    CTCAE_CONSTANTS,
+    MAP_CTCAE_LAB,
+    SYMP_COLS,
+)
 
 
 ###############################################################################

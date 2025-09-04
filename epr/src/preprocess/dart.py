@@ -1,12 +1,11 @@
 """
 Module to preprocess DART (symptom data)
 """
-from typing import Optional
 import pandas as pd
+from make_clinical_dataset.epr.util import get_excluded_numbers
 
-from ml_common.util import get_excluded_numbers
 
-def get_symptoms_data(data_dir: Optional[str] = None):
+def get_symptoms_data(data_dir: str | None = None):
     if data_dir is None:
         data_dir = './data/raw'
 
@@ -31,6 +30,11 @@ def process_symptoms_data(df):
         .agg({col: 'mean' for col in cols}) # handle conflicting data by taking the mean
     )
     df = df.reset_index()
+
+    # rename the columns
+    df = df.rename(
+        columns={col: col.replace('esas_', '').replace('patient_', '') for col in cols}
+    )
 
     return df
 

@@ -1,8 +1,6 @@
 """
 Module to preprocess clinical notes and clinic visits data
 """
-from typing import Optional
-
 import pandas as pd
 
 
@@ -10,7 +8,7 @@ import pandas as pd
 # Clinical Notes
 ###############################################################################
 def get_clinical_notes_data(
-    data_dir: Optional[str] = None, 
+    data_dir: str | None = None, 
     drop_duplicates: bool = True
 ) -> pd.DataFrame:
     if data_dir is None:

@@ -2,13 +2,12 @@
 Module to preprocess the cancer registry (cancer patient demographic data)
 and EPR death dates
 """
-from typing import Optional
 import pandas as pd
-
+from make_clinical_dataset.epr.util import get_excluded_numbers
 from ml_common.constants import CANCER_CODE_MAP
-from ml_common.util import get_excluded_numbers
 
-def get_demographic_data(data_dir: Optional[str] = None):
+
+def get_demographic_data(data_dir: str | None = None):
     if data_dir is None:
         data_dir = './data/raw'
 

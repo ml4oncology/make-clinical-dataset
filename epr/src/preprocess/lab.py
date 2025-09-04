@@ -1,13 +1,11 @@
 """
 Module to preprocess laboratory test data, which includes hematology and biochemistry data
 """
-from typing import Optional
-
 import pandas as pd
-
 from make_clinical_dataset.shared.constants import OBS_MAP
 
-def get_lab_data(mrn_map: dict[str, int], data_dir: Optional[str] = None):
+
+def get_lab_data(mrn_map: dict[str, int], data_dir: str | None = None):
     if data_dir is None:
         data_dir = './data/raw'
 
@@ -42,7 +40,7 @@ def process_lab_data(df):
     df.columns.name = None
     return df
 
-def filter_lab_data(df, obs_name_map: Optional[dict] = None):
+def filter_lab_data(df, obs_name_map: dict | None = None):
     df = clean_lab_data(df)
     
     # exclude rows where observation value is missing

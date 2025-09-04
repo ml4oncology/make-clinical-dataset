@@ -2,18 +2,17 @@
 Module to preprocess OPIS (systemic therapy treatment data)
 """
 import re
-from typing import Optional
 
 import numpy as np
 import pandas as pd
-from make_clinical_dataset.epr.feat_eng import get_line_of_therapy
-from ml_common.util import get_excluded_numbers
+from make_clinical_dataset.epr.engineer import get_line_of_therapy
+from make_clinical_dataset.epr.util import get_excluded_numbers
 
 
 def get_treatment_data(
     drugs: pd.DataFrame, 
     regimens: pd.DataFrame,
-    data_dir: Optional[str] = None
+    data_dir: str | None = None
 ) -> pd.DataFrame:
     if data_dir is None:
         data_dir = './data/raw'
@@ -333,7 +332,7 @@ def clean_drug_name(drug: str) -> tuple[str, str]:
 ###############################################################################
 # Mergers
 ###############################################################################
-def merge_same_day_treatments(df, dosage: Optional[pd.DataFrame] = None):
+def merge_same_day_treatments(df, dosage: pd.DataFrame | None = None):
     """
     Collapse multiples rows with the same treatment day into one
 

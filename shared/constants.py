@@ -1,13 +1,16 @@
 from pathlib import Path
 
+###############################################################################
 # Paths
+###############################################################################
 ROOT_DIR = '/cluster/projects/gliugroup/2BLAST'
 SRC_DIR = str(Path(__file__).parent.parent)
 DEFAULT_CONFIG_PATH = f"{SRC_DIR}/config/default.yaml"
 INFO_DIR = f'{ROOT_DIR}/data/info/'
 
-# centralized column mappings
-# TODO: deprecate this in favor of model.py
+###############################################################################
+# Column Mappings - TODO: deprecate this in favor of model.py
+###############################################################################
 OPIS_COL_MAP = { # 2023-02-21
     'Hosp_Chart': 'mrn',
     'Regimen': 'regimen',
@@ -74,7 +77,9 @@ RAD_COL_MAP = { # 2025-07-02
     'Morphology': 'morphology'
 }
 
-# lab observations
+###############################################################################
+# Lab Observations
+###############################################################################
 OBS_MAP = {
     'Hematology': {
         'Basophils': 'basophil',
@@ -152,6 +157,109 @@ OBS_MAP = {
     }
 }
 
+UNIT_MAP = {
+    "L/L": ["hematocrit"],
+    "U/L": [
+        "alanine_aminotransferase",
+        "alkaline_phosphatase",
+        "aspartate_aminotransferase",
+        "lactate_dehydrogenase",
+    ],
+    "cm": ["height"],
+    "fL": ["mean_corpuscular_volume", "mean_platelet_volume"],
+    "g/L": ["albumin", "hemoglobin", "mean_corpuscular_hemoglobin_concentration"],
+    "kg": ["weight"],
+    "kU/L": ["carbohydrate_antigen_19-9"],
+    "mL/min/1.73m2": ["eGFR"],
+    "mmol/L": [
+        "bicarbonate",
+        "calcium",
+        "chloride",
+        "glucose",
+        "magnesium",
+        "phosphate",
+        "potassium",
+        "sodium",
+    ],
+    "m^2": ["body_surface_area"],
+    "pg": ["mean_corpuscular_hemoglobin"],
+    "s": ["activated_partial_thromboplastin_time"],
+    "umol/L": ["creatinine", "total_bilirubin"],
+    "x10e9/L": [
+        "basophil",
+        "eosinophil",
+        "lymphocyte",
+        "monocyte",
+        "neutrophil",
+        "platelet",
+        "white_blood_cell",
+    ],
+    "x10e12/L": ["red_blood_cell"],
+    "years": ["age"],
+    "%CV": ["red_cell_distribution_width"],
+}
+
+###############################################################################
+# Columns
+###############################################################################
+LAB_COLS = sorted(set([*OBS_MAP['Hematology'].values(), *OBS_MAP['Biochemistry'].values()]))
+SYMP_COLS = [
+    'anxiety',
+    'depression',
+    'drowsiness',
+    'ecog',
+    'lack_of_appetite',
+    'nausea',
+    'pain',
+    'shortness_of_breath',
+    'tiredness',
+    'well_being'
+]
+
+# Specifically for EPR
+# TODO: move somewhere else?
+LAB_CHANGE_COLS = [f"{col}_change" for col in LAB_COLS]
+SYMP_CHANGE_COLS = [f"{col}_change" for col in SYMP_COLS]
+EPR_DRUG_COLS = [
+    '%_ideal_dose_given_GEMCITABINE',
+    '%_ideal_dose_given_CISPLATIN',
+    '%_ideal_dose_given_FLUOROURACIL',
+    '%_ideal_dose_given_ETOPOSIDE',
+    '%_ideal_dose_given_CARBOPLATIN',
+    '%_ideal_dose_given_PEMETREXED',
+    '%_ideal_dose_given_OXALIPLATIN',
+    '%_ideal_dose_given_VINORELBINE',
+    '%_ideal_dose_given_IRINOTECAN',
+    '%_ideal_dose_given_PACL',
+    '%_ideal_dose_given_NAB-PACL',
+    '%_ideal_dose_given_PEMBROLIZUMAB',
+    '%_ideal_dose_given_NIVOLUMAB',
+    '%_ideal_dose_given_DOCETAXEL',
+    '%_ideal_dose_given_EPIRUBICIN',
+    '%_ideal_dose_given_TRASTUZUMAB',
+    '%_ideal_dose_given_CYCLOPHOSPHAMIDE',
+    '%_ideal_dose_given_DOXORUBICIN',
+    '%_ideal_dose_given_DURVALUMAB',
+    '%_ideal_dose_given_BEVACIZUMAB',
+    '%_ideal_dose_given_CETUXIMAB',
+    '%_ideal_dose_given_RAMUCIRUMAB',
+    '%_ideal_dose_given_RALTITREXED',
+    '%_ideal_dose_given_TREMELIMUMAB',
+    '%_ideal_dose_given_PERTUZUMAB',
+    '%_ideal_dose_given_TOPOTECAN',
+    '%_ideal_dose_given_LIPOSOMAL IRINOTECAN',
+    '%_ideal_dose_given_ATEZOLIZUMAB',
+    '%_ideal_dose_given_IPILIMUMAB',
+    '%_ideal_dose_given_MITOMYCIN',
+    '%_ideal_dose_given_PANITUMUMAB',
+    '%_ideal_dose_given_CAPECITABINE',
+    '%_ideal_dose_given_ERLOTINIB',
+    '%_ideal_dose_given_LENVATINIB',
+    '%_ideal_dose_given_OLAPARIB',
+]
+###############################################################################
+# Other Mappings
+###############################################################################
 # CTCAE: Common Terminology Criteria for Adverse Events
 # CTCAE v5.0: https://ctep.cancer.gov/protocoldevelopment/electronic_applications/docs/CTCAE_v5_Quick_Reference_8.5x11.pdf
 # Constants for CTCAE thresholds

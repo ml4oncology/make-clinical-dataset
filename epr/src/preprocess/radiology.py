@@ -1,15 +1,13 @@
 """
 Module to preprocess EPR radiology report data
 """
-from typing import Optional
-
 import pandas as pd
+from make_clinical_dataset.epr.util import remove_duplicate_lines
 
-from ml_common.text import remove_duplicate_lines
 
 def get_radiology_data(
     mrn_map: dict[str, int], 
-    data_dir: Optional[str] = None, 
+    data_dir: str | None = None, 
     drop_duplicates: bool = True
 ) -> pd.DataFrame:
     if data_dir is None:

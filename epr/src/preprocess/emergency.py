@@ -1,17 +1,16 @@
 """
 Module to preprocess emergency department visit (old pull) / emergency room data (new pull)
 """
-from typing import Optional
-
 import pandas as pd
-
+from make_clinical_dataset.epr.util import get_excluded_numbers
 from make_clinical_dataset.shared import logger
-from ml_common.util import get_excluded_numbers, split_and_parallelize
+from ml_common.util import split_and_parallelize
+
 
 ###############################################################################
 # ER (Emergency Room - NEW PULL)
 ###############################################################################
-def get_emergency_room_data(data_dir: Optional[str] = None) -> pd.DataFrame:
+def get_emergency_room_data(data_dir: str | None = None) -> pd.DataFrame:
     if data_dir is None:
         data_dir = './data/raw'
 
@@ -151,10 +150,9 @@ def collapse(g: pd.Series) -> pd.Series:
 ###############################################################################
 # ED (Emergency Department - OLD PULL)
 ###############################################################################
-def get_emergency_department_data(data_dir: Optional[str] = None) -> pd.DataFrame:
+def get_emergency_department_data(data_dir: str | None = None) -> pd.DataFrame:
     if data_dir is None:
-        data_dir = f'{ROOT_DIR}/data/raw'
-
+        data_dir = './data/raw'
     df = pd.read_parquet(f'{data_dir}/ED.parquet.gzip')
     df = process_emergency_department_data(df)
     return df

@@ -3,6 +3,69 @@ Module for feature engineering
 """
 import numpy as np
 import pandas as pd
+from make_clinical_dataset.shared import logger
+from make_clinical_dataset.shared.constants import (
+    LAB_CHANGE_COLS,
+    LAB_COLS,
+    SYMP_CHANGE_COLS,
+    SYMP_COLS,
+)
+
+
+###############################################################################
+# General
+###############################################################################
+def get_change_since_prev_session(df: pd.DataFrame) -> pd.DataFrame:
+    """Get change in measurements since previous session"""
+    cols = LAB_COLS + SYMP_COLS
+    change_cols = LAB_CHANGE_COLS + SYMP_CHANGE_COLS
+
+    # use only the columns that exist in the data
+    mask = [col in df.columns for col in cols]
+    cols, change_cols = np.array(cols)[mask], np.array(change_cols)[mask]
+
+    result = df.groupby('mrn')[cols].diff() # assumes dataframe is sorted by visit date already
+    result.columns = change_cols
+    df = pd.concat([df, result], axis=1)
+    return df
+
+
+def get_missingness_features(
+    df: pd.DataFrame, exclude_keyword: str = "target"
+) -> pd.DataFrame:
+    cols_with_nan = df.columns[df.isnull().any()]
+    cols_with_nan = cols_with_nan[~cols_with_nan.str.contains(exclude_keyword)]
+    df[cols_with_nan + "_is_missing"] = df[cols_with_nan].isnull()
+    return df
+
+
+def collapse_rare_categories(
+    df: pd.DataFrame, catcols: list[str], N: int = 6
+) -> pd.DataFrame:
+    """Collapse rare categories to 'other'
+
+    Args:
+        N: the minimum number of patients a category must be assigned to
+    """
+    for feature in catcols:
+        other_mask = False
+        drop_cols = []
+        for col in df.columns[df.columns.str.startswith(feature)]:
+            mask = df[col]
+            if df.loc[mask, "mrn"].nunique() < N:
+                drop_cols.append(col)
+                other_mask |= mask
+        
+        if not drop_cols:
+            logger.info(f'No rare categories for {feature} was found')
+            continue
+
+        df = df.drop(columns=drop_cols)
+        df[f"{feature}_other"] = other_mask
+        msg = f"Reassigning the following {len(drop_cols)} indicators with less than {N} patients as other: {drop_cols}"
+        logger.info(msg)
+
+    return df
 
 
 ###############################################################################
@@ -24,6 +87,7 @@ def get_days_since_last_event(df, main_date_col: str = 'treatment_date', event_d
 def get_years_diff(df, col1: str, col2: str):
     return df[col1].dt.year - df[col2].dt.year
 
+
 ###############################################################################
 # Treatment
 ###############################################################################
@@ -34,6 +98,7 @@ def get_line_of_therapy(df):
     new_regimen = (df['first_treatment_date'] != df['first_treatment_date'].shift())
     palliative_intent = df['intent'] == 'PALLIATIVE'
     return (new_regimen & palliative_intent).cumsum()
+
 
 ###############################################################################
 # Drug dosages
@@ -73,6 +138,7 @@ def get_ideal_dose(df, drug: str, dose_formula: str):
     
     else:
         raise ValueError(f'Ideal dose formula {dose_formula} not supported')
+
 
 ###############################################################################
 # Special Formulas

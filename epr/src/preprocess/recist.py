@@ -1,14 +1,11 @@
 """
 Module to preprocess RECIST (Response evaluation criteria in solid tumors) data from COMPASS trial
 """
-
-from typing import Optional
-
 import pandas as pd
 from make_clinical_dataset.shared.constants import RECIST_RANKING
 
 
-def get_recist_data(data_dir: Optional[str] = None) -> pd.DataFrame:
+def get_recist_data(data_dir: str | None = None) -> pd.DataFrame:
     """Loads and clean the df (Response evaluation criteria in solid tumors) data taken from 
     patients in COMPASS trial
     """
