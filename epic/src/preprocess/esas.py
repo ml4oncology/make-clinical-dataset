@@ -4,31 +4,9 @@ Module to preprocess ESAS (Edmonton Symptom Assessment Score) and ECOG (Eastern 
 NOTE: The completion rate of these surveys dropped from ~70% to ~30% during COVID and has never rebounded. 
 We might have to rethink on the relevance of these as features, if we want to use them for predicting future outcomes. 
 """
-import logging
-
 import pandas as pd
-from ml_common.util import get_excluded_numbers
-
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s %(levelname)s:%(message)s', 
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-
-ESAS_MAP = {
-    'Anxiety': 'anxiety',
-    'Appetite': 'lack_of_appetite', 
-    'Depression': 'depression',
-    'Drowsiness': 'drowsiness',
-    'ECOG (Patient reported)': 'ecog',
-    'Feeling of Well-being': 'well_being',
-    'Lack of Appetite': 'lack_of_appetite',
-    'Nausea': 'nausea',
-    'Pain': 'pain', 
-    'Shortness of breath': 'shortness_of_breath',
-    'Tiredness': 'tiredness',
-    'Wellbeing': 'well_being',
-}
+from make_clinical_dataset.epr.util import get_excluded_numbers
+from make_clinical_dataset.shared.constants import ESAS_MAP
 
 
 def get_symp_data(

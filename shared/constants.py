@@ -199,22 +199,31 @@ UNIT_MAP = {
     "%CV": ["red_cell_distribution_width"],
 }
 
+
+###############################################################################
+# Symptom Surveys
+###############################################################################
+ESAS_MAP = {
+    'Anxiety': 'anxiety',
+    'Appetite': 'lack_of_appetite', 
+    'Depression': 'depression',
+    'Drowsiness': 'drowsiness',
+    'ECOG (Patient reported)': 'ecog',
+    'Feeling of Well-being': 'well_being',
+    'Lack of Appetite': 'lack_of_appetite',
+    'Nausea': 'nausea',
+    'Pain': 'pain', 
+    'Shortness of breath': 'shortness_of_breath',
+    'Tiredness': 'tiredness',
+    'Wellbeing': 'well_being',
+}
+
+
 ###############################################################################
 # Columns
 ###############################################################################
 LAB_COLS = sorted(set([*OBS_MAP['Hematology'].values(), *OBS_MAP['Biochemistry'].values()]))
-SYMP_COLS = [
-    'anxiety',
-    'depression',
-    'drowsiness',
-    'ecog',
-    'lack_of_appetite',
-    'nausea',
-    'pain',
-    'shortness_of_breath',
-    'tiredness',
-    'well_being'
-]
+SYMP_COLS = sorted(set(ESAS_MAP.values()))
 
 # Specifically for EPR
 # TODO: move somewhere else?

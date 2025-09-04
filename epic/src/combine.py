@@ -67,3 +67,72 @@ def merge_closest_measurements(
 
     main = main.drop("main_date")
     return main
+
+
+###############################################################################
+# Specific Combiners
+###############################################################################
+def combine_chemo_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame, 
+    chemo: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    time_window: tuple[int, int] = (-28,0),
+) -> pl.DataFrame | pl.LazyFrame:
+    """Combine chemo treatment information to the main data"""
+    # Further preprocess the chemo
+    chemo = chemo.filter(pl.col('drug_type') == "direct")
+    chemo = chemo.select(
+        'mrn', 'treatment_date', 'drug_name', 'first_treatment_date', 'intent', 
+        'cycle_number', 'body_surface_area', 'height', 'weight'
+    )
+    # one-hot encode drugs - TODO: retrive the dosages instead of binary 0/1 for each drug
+    drugs = chemo['drug_name'].unique()
+    chemo = chemo.with_columns(pl.col('drug_name').alias('drug')) # keep the orignal string column
+    chemo = chemo.to_dummies(columns='drug')
+    # merge same-day rows
+    chemo = chemo.group_by('mrn', 'treatment_date').agg(
+        pl.col('body_surface_area').mean(),
+        pl.col('height').mean(),
+        pl.col('weight').mean(),
+        # if two treatments (the old regimen and new regimen) overlap on same day, use data associated with the most recent regimen 
+        # NOTE: examples found thru df.group_by('mrn', 'treatment_date').agg(pl.col('first_treatment_date').n_unique() > 1)
+        pl.col('cycle_number').last(),
+        pl.col('first_treatment_date').last(),
+        pl.col('intent').last(),
+        # combine dosages together
+        *(pl.col(f'drug_{col}').max() for col in drugs),
+        # concat the drugs together
+        pl.col("drug_name").str.join("\n")
+    )
+    # NOTE: group_by's maintain_order=True is not efficient, better to sort it again right after
+    chemo = chemo.sort('mrn', 'treatment_date')
+
+    # Merge them together
+    main = merge_closest_measurements(
+        main, chemo, main_date_col=main_date_col, meas_date_col="treatment_date", merge_individually=False,
+        time_window=time_window
+    )
+    return main
+
+
+def combine_demographic_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame, 
+    demog: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+) -> pl.DataFrame | pl.LazyFrame:
+    main = merge_closest_measurements(
+        main, demog, main_date_col=main_date_col, meas_date_col="diagnosis_date", 
+        merge_individually=False, time_window=[-1e8, 0]
+    )
+
+    # exclude patients with missing birth date
+    main = main.filter(pl.col("birth_date").is_not_null())
+
+    # create age column
+    age = (pl.col("assessment_date") - pl.col("birth_date")).dt.total_days() / 365.25
+    main = main.with_columns(age.alias('age'))
+
+    # exclude patients under 18 years of age
+    main = main.filter(pl.col('age') >= 18)
+
+    return main
