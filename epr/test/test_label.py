@@ -1,8 +1,11 @@
 import pandas as pd
 import pytest
-
-from make_clinical_dataset.shared.constants import CTCAE_CONSTANTS, MAP_CTCAE_LAB
-from ml_common.constants import SYMP_COLS
+from make_clinical_dataset.shared.constants import CTCAE_CONSTANTS, MAP_CTCAE_LAB, SYMP_COLS
+from make_clinical_dataset.shared.constants import (
+    CTCAE_CONSTANTS,
+    MAP_CTCAE_LAB,
+    SYMP_COLS,
+)
 
 @pytest.fixture
 def df():

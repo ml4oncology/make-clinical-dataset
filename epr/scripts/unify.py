@@ -1,25 +1,29 @@
 """
 Script to combine all the data into one unified dataset
 """
-from itertools import product
 import argparse
 import os
+from itertools import product
 
 import pandas as pd
 import yaml
-
-from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH
 from make_clinical_dataset.epr.combine import (
     add_engineered_features,
-    combine_demographic_to_main_data, 
+    combine_demographic_to_main_data,
     combine_event_to_main_data,
     combine_perc_dose_to_main_data,
-    combine_treatment_to_main_data
+    combine_treatment_to_main_data,
+    merge_closest_measurements,
 )
-from make_clinical_dataset.epr.label import get_CTCAE_labels, get_death_labels, get_ED_labels, get_symptom_labels
+from make_clinical_dataset.epr.label import (
+    get_CTCAE_labels,
+    get_death_labels,
+    get_ED_labels,
+    get_symptom_labels,
+)
 from make_clinical_dataset.epr.util import load_included_drugs
+from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH
 
-from ml_common.anchor import merge_closest_measurements
 
 def parse_args():
     parser = argparse.ArgumentParser()

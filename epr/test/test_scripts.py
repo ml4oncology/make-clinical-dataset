@@ -3,8 +3,7 @@ import subprocess
 
 import pandas as pd
 import pytest
-from make_clinical_dataset.shared.constants import MAP_CTCAE_LAB
-from ml_common.constants import SYMP_COLS
+from make_clinical_dataset.shared.constants import MAP_CTCAE_LAB, SYMP_COLS
 
 
 def test_combine_features_mock(tmp_path):
