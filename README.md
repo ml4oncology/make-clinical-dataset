@@ -26,7 +26,7 @@ EPR Flow
 python epr/scripts/csv_to_parquet.py
 # build out the features from each dataset
 python epr/scripts/build.py
-# unify the features into a central dataset
+# unify the features and targets into a central dataset
 python epr/scripts/unify.py [OPTIONAL args]
 ```
 
@@ -42,6 +42,8 @@ python epic/scripts/process_therapies.py
 python epic/scripts/ask_groq.py --normalize drugs
 # build out the features from each dataset
 python epic/scripts/build.py
+# unify the features and targets into a central dataset
+python epic/scripts/unify.py [OPTIONAL args]
 ```
 
 # Project Organization

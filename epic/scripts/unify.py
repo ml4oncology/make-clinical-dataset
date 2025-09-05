@@ -94,4 +94,5 @@ def main():
     # main_data.write_parquet(f'{output_dir}/{output_file_prefix}_data.parquet')
     print(main)
     
-if __name__ == '__main_
+if __name__ == '__main__':
+    main()

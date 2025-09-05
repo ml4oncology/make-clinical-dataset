@@ -35,6 +35,8 @@ def combine_meas_to_main_data(
     worker = partial(measurement_stat_extractor, main_date_col=main_date_col, meas_date_col=meas_date_col, **kwargs)
     result = split_and_parallelize((main[mask], meas), worker) if parallelize else worker((main[mask], meas))
     result = pd.DataFrame(result).set_index('index')
+    if not result:
+        return main
     df = main.join(result)
     return df
 
