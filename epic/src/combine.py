@@ -1,0 +1,138 @@
+"""
+Module to anchor/combine features or targets to the main dates
+"""
+import datetime
+
+import polars as pl
+
+
+###############################################################################
+# General Combiners
+###############################################################################
+def merge_closest_measurements(
+    main: pl.DataFrame | pl.LazyFrame, 
+    meas: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str,
+    meas_date_col: str, 
+    direction: str = 'backward',
+    time_window: tuple[int, int] = (-5,0),
+    merge_individually: bool = True,
+    include_meas_date: bool = False
+) -> pl.DataFrame | pl.LazyFrame:
+    """Extract the closest measurements (lab tests, symptom scores, etc) prior to / after the main date 
+    within a lookback / lookahead window and combine them to the main dataset
+
+    Both main and meas should have mrn and date columns
+    
+    Args:
+        main_date_col: The column name of the main visit date
+        meas_date_col: The column name of the measurement date
+        time_window: The start and end of the window in terms of number of days after(+)/before(-) the main visit dates
+        direction: specifies whether to merge measurements before or after the main date. Either 'backward' or 'forward'
+        merge_individually: If True, merges each measurement column separately
+        include_meas_date: If True, include the date of the closest measurement that was merged
+    """
+    lower_limit, upper_limit = time_window
+    if direction == 'backward':
+        main_date = pl.col(main_date_col) + pl.duration(days=upper_limit)
+    elif direction == 'forward':
+        main_date = pl.col(main_date_col) + pl.duration(days=lower_limit)
+    main = main.with_columns(main_date.alias("main_date"))
+
+    # ensure date types match
+    meas = meas.with_columns(pl.col(meas_date_col).cast(main.schema["main_date"]))
+
+    merge_kwargs = dict(
+        left_on='main_date', right_on=meas_date_col, by='mrn', strategy=direction,
+        tolerance=datetime.timedelta(days=upper_limit - lower_limit), check_sortedness=False
+    )
+    
+    if merge_individually:
+        # merge each measurement column individually
+        for col in meas.columns:
+            if col in ["mrn", meas_date_col]: continue
+
+            data_to_merge = meas.filter(pl.col(col).is_not_null()).select(["mrn", meas_date_col, col])
+
+            # merges the closest row to main date while matching on mrn
+            main = main.join_asof(data_to_merge, **merge_kwargs)
+
+            if include_meas_date:
+                main = main.rename({meas_date_col: f"{col}_{meas_date_col}"})
+            else:
+                main = main.drop(meas_date_col)
+
+    else:
+        main = main.join_asof(meas, **merge_kwargs)
+
+    main = main.drop("main_date")
+    return main
+
+
+###############################################################################
+# Specific Combiners
+###############################################################################
+def combine_chemo_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame, 
+    chemo: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    time_window: tuple[int, int] = (-28,0),
+) -> pl.DataFrame | pl.LazyFrame:
+    """Combine chemo treatment information to the main data"""
+    # Further preprocess the chemo
+    chemo = chemo.filter(pl.col('drug_type') == "direct")
+    chemo = chemo.select(
+        'mrn', 'treatment_date', 'drug_name', 'first_treatment_date', 'intent', 
+        'cycle_number', 'body_surface_area', 'height', 'weight'
+    )
+    # one-hot encode drugs - TODO: retrive the dosages instead of binary 0/1 for each drug
+    drugs = chemo['drug_name'].unique()
+    chemo = chemo.with_columns(pl.col('drug_name').alias('drug')) # keep the orignal string column
+    chemo = chemo.to_dummies(columns='drug')
+    # merge same-day rows
+    chemo = chemo.group_by('mrn', 'treatment_date').agg(
+        pl.col('body_surface_area').mean(),
+        pl.col('height').mean(),
+        pl.col('weight').mean(),
+        # if two treatments (the old regimen and new regimen) overlap on same day, use data associated with the most recent regimen 
+        # NOTE: examples found thru df.group_by('mrn', 'treatment_date').agg(pl.col('first_treatment_date').n_unique() > 1)
+        pl.col('cycle_number').last(),
+        pl.col('first_treatment_date').last(),
+        pl.col('intent').last(),
+        # combine dosages together
+        *(pl.col(f'drug_{col}').max() for col in drugs),
+        # concat the drugs together
+        pl.col("drug_name").str.join("\n")
+    )
+    # NOTE: group_by's maintain_order=True is not efficient, better to sort it again right after
+    chemo = chemo.sort('mrn', 'treatment_date')
+
+    # Merge them together
+    main = merge_closest_measurements(
+        main, chemo, main_date_col=main_date_col, meas_date_col="treatment_date", merge_individually=False,
+        time_window=time_window
+    )
+    return main
+
+
+def combine_demographic_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame, 
+    demog: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+) -> pl.DataFrame | pl.LazyFrame:
+    main = merge_closest_measurements(
+        main, demog, main_date_col=main_date_col, meas_date_col="diagnosis_date", 
+        merge_individually=False, time_window=[-1e8, 0]
+    )
+
+    # exclude patients with missing birth date
+    main = main.filter(pl.col("birth_date").is_not_null())
+
+    # create age column
+    age = (pl.col("assessment_date") - pl.col("birth_date")).dt.total_days() / 365.25
+    main = main.with_columns(age.alias('age'))
+
+    # exclude patients under 18 years of age
+    main = main.filter(pl.col('age') >= 18)
+
+    return main
