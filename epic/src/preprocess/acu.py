@@ -70,7 +70,10 @@ def extract_admission_and_discharge_dates(df: pl.DataFrame | pl.LazyFrame) -> pl
         "%d-%b-%Y",      # 15-Jul-2022
         "%d-%B-%Y",      # 15-July-2022
         "%d-%b %Y",      # 15-Jul 2022
-        "%B-%d %Y",      # July-6 2022
+        "%d%B-%Y",       # 15July-2022
+        "%B-%d-%Y",      # July-15-2022
+        "%B %d-%Y",      # July 15-2022
+        "%B-%d %Y",      # July-15 2022
         "%d/%b/%Y",      # 15/Jul/2022
         "%d/%B/%Y",      # 15/July/2022
         "%d%b/%Y",       # 15Jul/2022
