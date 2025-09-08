@@ -13,11 +13,7 @@ from make_clinical_dataset.epic.combine import (
 )
 from make_clinical_dataset.epic.label import get_acu_labels
 from make_clinical_dataset.epic.preprocess.demographic import get_demographic_data
-from make_clinical_dataset.shared.constants import (
-    DEFAULT_CONFIG_PATH,
-    INFO_DIR,
-    ROOT_DIR,
-)
+from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH, ROOT_DIR
 
 DATE = '2025-03-29'
 DATA_DIR = f"{ROOT_DIR}/data/final/data_{DATE}"
@@ -74,10 +70,10 @@ def main():
         raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
     
     # Extract features
-    main = combine_demographic_to_main_data(main, demog, main_date_col="assessment_date")
-    main = combine_chemo_to_main_data(main, chemo, main_date_col="assessment_date")
-    main = merge_closest_measurements(main, lab, "assessment_date", "obs_date", include_meas_date=True, time_window=(-5,0))
-    main = merge_closest_measurements(main, sym, "assessment_date", "obs_date", include_meas_date=True, time_window=(-30,0))
+    main = combine_demographic_to_main_data(main, demog, main_date_col=main_date_col)
+    main = combine_chemo_to_main_data(main, chemo, main_date_col=main_date_col)
+    main = merge_closest_measurements(main, lab, main_date_col, "obs_date", include_meas_date=True, time_window=(-5,0))
+    main = merge_closest_measurements(main, sym, main_date_col, "obs_date", include_meas_date=True, time_window=(-30,0))
 
     # Extract targets
     main = get_acu_labels(main, acu, lookahead_window=[30, 60, 90])
@@ -87,12 +83,11 @@ def main():
     
     date_cols = ['mrn'] + [col for col in main.columns if col.endswith('date')]
     str_cols = ['cancer_type', 'primary_site_desc', 'intent', 'drug_name', 'postal_code']
-    feat_cols = ['mrn', 'assessment_date'] + str_cols + [col for col in main.columns if col not in date_cols+str_cols]
+    feat_cols = ['mrn', main_date_col] + str_cols + [col for col in main.columns if col not in date_cols+str_cols]
     main_dates = main.select(date_cols)
-    # main_dates.write_parquet(f'{output_dir}/{output_file_prefix}_dates.parquet')
+    main_dates.write_parquet(f'{output_dir}/{output_file_prefix}_dates.parquet')
     main_data = main.select(feat_cols)
-    # main_data.write_parquet(f'{output_dir}/{output_file_prefix}_data.parquet')
-    print(main)
+    main_data.write_parquet(f'{output_dir}/{output_file_prefix}_data.parquet')
     
 if __name__ == '__main__':
     main()
