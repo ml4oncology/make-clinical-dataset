@@ -52,8 +52,8 @@ def extract_admission_and_discharge_dates(df: pl.DataFrame | pl.LazyFrame) -> pl
     # (?i) - case insensitive
     # [:\s\n]* - zero or more colon or white spaces or new lines
     # [\s\S]*? - zero or more white space and non-white space
-    admit_pattern = rf"(?i)(?:date of[\s\S]* admission|date of visit|admission date|admit date|admitted[\s\S]* on)[:\s\n]*{date_pattern}"
-    discharge_pattern = rf"(?i)(?:date of[\s\S]* discharge|discharge date|discharged[\s\S]* on)[:\s\n]*{date_pattern}"
+    admit_pattern = rf"(?i)(?:date of[\s\S]* admission|date of visit|admission date|admit date|admitted[\s\S]*? on)[:\s\n]*{date_pattern}"
+    discharge_pattern = rf"(?i)(?:date of[\s\S]* discharge|discharge date|discharged[\s\S]*? on)[:\s\n]*{date_pattern}"
     df = df.with_columns(
         pl.col("clinical_notes").str.extract(admit_pattern, 1).alias("admission_date_raw"),
         pl.col("clinical_notes").str.extract(discharge_pattern, 1).alias("discharge_date_raw"),

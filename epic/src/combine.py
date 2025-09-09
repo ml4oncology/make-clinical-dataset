@@ -136,3 +136,53 @@ def combine_demographic_to_main_data(
     main = main.filter(pl.col('age') >= 18)
 
     return main
+
+
+def combine_event_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame, 
+    event: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    event_name: str,
+    lookback_window: int = 5, # years
+) -> pl.DataFrame | pl.LazyFrame:
+    # Additional features to be added
+    # 1. date of most recent event prior to main date
+    prev_date_col = f'prev_{event_name}_date'
+    # 2. days since most recent event
+    days_since_col = f'days_since_prev_{event_name}'
+    # 3. number of events within the lookback window 
+    num_events_col = f'num_prior_{event_name}s_within_{lookback_window}_years'
+    # TODO: add length of stay
+
+    # Extract the event features
+    # main = main.lazy()
+    # event = event.lazy()
+    event_feats = (
+        main
+        .join(event, on="mrn", how="left") # WARNING: beware of exploding joins, use lazy evaluation when necessary
+        .filter(
+            (pl.col("admission_date").is_not_null()) &
+            (pl.col("admission_date") < pl.col(main_date_col)) &
+            (pl.col("admission_date") >= (pl.col(main_date_col) - pl.duration(days=365 * lookback_window)))
+        )
+        .group_by(["mrn", main_date_col])
+        .agg(
+            pl.len().alias(num_events_col),
+            pl.col("admission_date").max().alias(prev_date_col)
+        )
+        .with_columns(
+            (pl.col(main_date_col) - pl.col(prev_date_col)).dt.total_days().alias(days_since_col)
+        )
+    )
+
+    # Merge the event features to main
+    main = (   
+        main
+        .join(event_feats, on=["mrn", main_date_col], how="left")
+        .with_columns(
+            pl.col(num_events_col).fill_null(0),
+            pl.col(days_since_col).fill_null(365 * lookback_window)
+        )
+    )
+
+    return main
