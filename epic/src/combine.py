@@ -112,6 +112,39 @@ def combine_chemo_to_main_data(
         main, chemo, main_date_col=main_date_col, meas_date_col="treatment_date", merge_individually=False,
         time_window=time_window
     )
+
+    # Create days since starting treatment column
+    days_since_start = (pl.col(main_date_col) - pl.col('first_treatment_date')).dt.total_days()
+    main = main.with_columns(days_since_start.alias('days_since_starting_treatment'))
+
+    # Create days since last treatment column
+    mask = main.select((pl.col(main_date_col) == pl.col('treatment_date')).alias('is_same'))
+    same_date = mask['is_same'].all() if isinstance(main, pl.DataFrame) else mask.collect()['is_same'].all()
+    if same_date: 
+        days_since_last = pl.col("treatment_date").diff().dt.total_days()
+        main = main.with_columns(days_since_last.over("mrn").alias('days_since_last_treatment'))
+    else:
+        days_since_last = (pl.col(main_date_col) - pl.col('treatment_date')).dt.total_days()
+        main = main.with_columns(days_since_last.alias('days_since_last_treatment'))
+
+    return main
+
+
+def combine_radiation_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame, 
+    rad: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    time_window: tuple[int, int] = (-28,0),
+) -> pl.DataFrame | pl.LazyFrame:
+    rad = (
+        rad
+        .select('mrn', 'treatment_start_date', 'dose_given')
+        .rename({'treatment_start_date': 'radiation_date', 'dose_given': 'radiation_dose_given'})
+    )
+    main = merge_closest_measurements(
+        main, rad, main_date_col=main_date_col, meas_date_col="radiation_date", merge_individually=False, 
+        time_window=time_window
+    )
     return main
 
 
