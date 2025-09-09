@@ -2,6 +2,8 @@ import logging
 from collections.abc import Sequence
 
 import pandas as pd
+from make_clinical_dataset.epr.engineer import collapse_rare_categories
+from make_clinical_dataset.epr.util import get_excluded_numbers
 from make_clinical_dataset.shared.constants import (
     EPR_DRUG_COLS,
     LAB_CHANGE_COLS,
@@ -9,8 +11,6 @@ from make_clinical_dataset.shared.constants import (
     SYMP_CHANGE_COLS,
     SYMP_COLS,
 )
-from ml_common.engineer import collapse_rare_categories
-from ml_common.util import get_excluded_numbers
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import StandardScaler
