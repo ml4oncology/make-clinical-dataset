@@ -3,6 +3,7 @@ Module to extract labels
 """
 import polars as pl
 from make_clinical_dataset.epic.combine import merge_closest_measurements
+from make_clinical_dataset.shared.constants import CTCAE_CONSTANTS, MAP_CTCAE_LAB
 
 
 ###############################################################################
@@ -11,6 +12,7 @@ from make_clinical_dataset.epic.combine import merge_closest_measurements
 def get_acu_labels(
     main: pl.DataFrame | pl.LazyFrame, 
     acu: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
     lookahead_window: int | list[int] = 30
 ) -> pl.DataFrame | pl.LazyFrame:
     if isinstance(lookahead_window, int):
@@ -21,12 +23,85 @@ def get_acu_labels(
     acu = acu.rename({'admission_date': 'target_ED_date', "clinical_notes": "target_ED_note"})
 
     main = merge_closest_measurements(
-        main, acu, main_date_col="assessment_date", meas_date_col="target_ED_date", 
+        main, acu, main_date_col=main_date_col, meas_date_col="target_ED_date", 
         merge_individually=False, direction='forward', time_window=(0, max(lookahead_window))
     )
 
     for days in lookahead_window:
-        mask = pl.col('target_ED_date').fill_null(strategy="max") < pl.col('assessment_date') + pl.duration(days=days)
+        mask = pl.col('target_ED_date').fill_null(strategy="max") < pl.col(main_date_col) + pl.duration(days=days)
         main = main.with_columns(mask.alias(f'target_ED_{days}d'))
+
+    return main
+
+
+###############################################################################
+# Abnormal Lab Findings / CTCAE (Common Terminology Criteria for Adverse Events)
+###############################################################################
+def get_CTCAE_labels(
+    main: pl.DataFrame | pl.LazyFrame, 
+    lab: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    lookahead_window: int = 30 # days
+) -> pl.DataFrame | pl.LazyFrame:
+    """Compute lookahead lab values and apply the threshold functions to generate CTCAE grade labels
+    """
+    # Extract the CTCAE targets
+    # main = main.lazy()
+    # lab = lab.lazy()
+    ctcae_targs = (
+        main
+        .join(lab, on="mrn", how="left", suffix="_target") # WARNING: beware of exploding joins, lazy evaluation is imperative
+        .filter(
+            (pl.col("obs_date") > pl.col(main_date_col)) &
+            (pl.col("obs_date") <= (pl.col(main_date_col) + pl.duration(days=lookahead_window)))
+        )
+        .group_by(["mrn", main_date_col])
+        .agg(
+            pl.col('hemoglobin_target').min().alias('target_hemoglobin_min'),
+            pl.col('platelet_target').min().alias('target_platelet_min'),
+            pl.col('neutrophil_target').min().alias('target_neutrophil_min'),
+            pl.col('creatinine_target').max().alias('target_creatinine_max'),
+            pl.col('alanine_aminotransferase_target').max().alias('target_alanine_aminotransferase_max'),
+            pl.col('aspartate_aminotransferase_target').max().alias('target_aspartate_aminotransferase_max'),
+            pl.col('total_bilirubin_target').max().alias('target_total_bilirubin_max'),
+        )
+    )
+
+    # Merge the CTCAE targets to main
+    main = main.join(ctcae_targs, on=["mrn", main_date_col], how="left")
+
+
+    # Apply threshold functions for each grade
+    exps = []
+    for ctcae, constants in CTCAE_CONSTANTS.items():
+        lab_col = MAP_CTCAE_LAB[ctcae]
+        for grade in [2, 3]:
+            target_col = f'target_{ctcae}_grade{grade}plus'
+            threshold = constants[f'grade{grade}plus']
+
+            if ctcae in ['hemoglobin', 'neutrophil', 'platelet']:
+                lab_lookahead_col = f'target_{lab_col}_min'
+                exp = (
+                    pl.when(pl.col(lab_lookahead_col).is_null())
+                    .then(-1)
+                    .when(pl.col(lab_lookahead_col) < threshold)
+                    .then(1)
+                    .otherwise(0)
+                    .alias(target_col)
+                )
+            else:
+                lab_lookahead_col = f'target_{lab_col}_max'
+                key = 'upper_bound' if ctcae == 'AKI' else 'lower_bound'
+                lab_base_val = pl.col(lab_col).clip(**{key: constants['ULN']}).fill_null(constants['ULN'])
+                exp = (
+                    pl.when(pl.col(lab_lookahead_col).is_null())
+                    .then(-1)
+                    .when(pl.col(lab_lookahead_col) > threshold * lab_base_val)
+                    .then(1)
+                    .otherwise(0)
+                    .alias(target_col)
+                )
+            exps.append(exp)
+    main = main.with_columns(exps)
 
     return main

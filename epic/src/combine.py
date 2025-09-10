@@ -194,7 +194,6 @@ def combine_event_to_main_data(
         main
         .join(event, on="mrn", how="left") # WARNING: beware of exploding joins, use lazy evaluation when necessary
         .filter(
-            (pl.col("admission_date").is_not_null()) &
             (pl.col("admission_date") < pl.col(main_date_col)) &
             (pl.col("admission_date") >= (pl.col(main_date_col) - pl.duration(days=365 * lookback_window)))
         )
