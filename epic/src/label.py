@@ -52,23 +52,28 @@ def get_CTCAE_labels(
     # Extract the CTCAE targets
     # main = main.lazy()
     # lab = lab.lazy()
+    suffix = '_target'
+    aggs = []
+    for col in ['hemoglobin', 'platelet', 'neutrophil']:
+        min_val = pl.col(f'{col}{suffix}').min()
+        min_val_date = pl.col("obs_date").gather(pl.col(f'{col}{suffix}').arg_min()).first()
+        aggs.append(min_val.alias(f'target_{col}_min'))
+        aggs.append(min_val_date.alias(f'target_{col}_min_date'))
+    for col in ['creatinine', 'alanine_aminotransferase', 'aspartate_aminotransferase', 'total_bilirubin']:
+        max_val = pl.col(f'{col}{suffix}').max()
+        max_val_date = pl.col("obs_date").gather(pl.col(f'{col}{suffix}').arg_max()).first()
+        aggs.append(max_val.alias(f'target_{col}_max'))
+        aggs.append(max_val_date.alias(f'target_{col}_max_date'))
+
     ctcae_targs = (
         main
-        .join(lab, on="mrn", how="left", suffix="_target") # WARNING: beware of exploding joins, lazy evaluation is imperative
+        .join(lab, on="mrn", how="left", suffix=suffix) # WARNING: beware of exploding joins, lazy evaluation is imperative
         .filter(
             (pl.col("obs_date") > pl.col(main_date_col)) &
             (pl.col("obs_date") <= (pl.col(main_date_col) + pl.duration(days=lookahead_window)))
         )
         .group_by(["mrn", main_date_col])
-        .agg(
-            pl.col('hemoglobin_target').min().alias('target_hemoglobin_min'),
-            pl.col('platelet_target').min().alias('target_platelet_min'),
-            pl.col('neutrophil_target').min().alias('target_neutrophil_min'),
-            pl.col('creatinine_target').max().alias('target_creatinine_max'),
-            pl.col('alanine_aminotransferase_target').max().alias('target_alanine_aminotransferase_max'),
-            pl.col('aspartate_aminotransferase_target').max().alias('target_aspartate_aminotransferase_max'),
-            pl.col('total_bilirubin_target').max().alias('target_total_bilirubin_max'),
-        )
+        .agg(*aggs)
     )
 
     # Merge the CTCAE targets to main
@@ -129,6 +134,13 @@ def get_symptom_labels(
         del scoring_map['ecog']
 
     # Extract the symptom deterioration targets
+    aggs = []
+    for key in scoring_map:
+        max_val = pl.col(f'{key}_target').max()
+        max_val_date = pl.col("obs_date").gather(pl.col(f'{key}_target').arg_max()).first()
+        aggs.append(max_val.alias(f'target_{key}_max'))
+        aggs.append(max_val_date.alias(f'target_{key}_max_date'))
+
     symp_targs = (
         main
         .join(symp, on="mrn", how="left", suffix="_target")
@@ -137,7 +149,7 @@ def get_symptom_labels(
             (pl.col("obs_date") <= (pl.col(main_date_col) + pl.duration(days=lookahead_window)))
         )
         .group_by(["mrn", main_date_col])
-        .agg([pl.col(f'{key}_target').max().alias(f'target_{key}_max') for key in scoring_map])
+        .agg(*aggs)
     )
     
     # Merge the symptom deterioration targets to main
