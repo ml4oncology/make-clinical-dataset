@@ -3,7 +3,11 @@ Module to extract labels
 """
 import polars as pl
 from make_clinical_dataset.epic.combine import merge_closest_measurements
-from make_clinical_dataset.shared.constants import CTCAE_CONSTANTS, MAP_CTCAE_LAB
+from make_clinical_dataset.shared.constants import (
+    CTCAE_CONSTANTS,
+    MAP_CTCAE_LAB,
+    SYMP_COLS,
+)
 
 
 ###############################################################################
@@ -70,7 +74,6 @@ def get_CTCAE_labels(
     # Merge the CTCAE targets to main
     main = main.join(ctcae_targs, on=["mrn", main_date_col], how="left")
 
-
     # Apply threshold functions for each grade
     exps = []
     for ctcae, constants in CTCAE_CONSTANTS.items():
@@ -102,6 +105,61 @@ def get_CTCAE_labels(
                     .alias(target_col)
                 )
             exps.append(exp)
+    main = main.with_columns(exps)
+
+    return main
+
+
+###############################################################################
+# Symptom Deterioration
+###############################################################################
+def get_symptom_labels(
+    main: pl.DataFrame | pl.LazyFrame, 
+    symp: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    lookahead_window: int = 30, # days
+    scoring_map: dict[str, int] | None = None
+) -> pl.DataFrame | pl.LazyFrame:
+    """Extract labels for symptom deterioration
+
+    Label is positive if symptom deteriorates (score increases) by X points within the lookahead window
+    """
+    if scoring_map is None:
+        scoring_map = {col: 3 for col in SYMP_COLS}
+        del scoring_map['ecog']
+
+    # Extract the symptom deterioration targets
+    symp_targs = (
+        main
+        .join(symp, on="mrn", how="left", suffix="_target")
+        .filter(
+            (pl.col("obs_date") > pl.col(main_date_col)) &
+            (pl.col("obs_date") <= (pl.col(main_date_col) + pl.duration(days=lookahead_window)))
+        )
+        .group_by(["mrn", main_date_col])
+        .agg([pl.col(f'{key}_target').max().alias(f'target_{key}_max') for key in scoring_map])
+    )
+    
+    # Merge the symptom deterioration targets to main
+    main = main.join(symp_targs, on=["mrn", main_date_col], how="left")
+
+    # Compute binary labels: 1 (positive), 0 (negative), or -1 (missing/exclude)
+    exps = []
+    for symp, pt in scoring_map.items():
+        targ_col = f"target_{symp}_{pt}pt_change"
+        change = pl.col(f"target_{symp}_max") - pl.col(symp)
+        exp = (
+            pl.when(change.is_null())
+            .then(-1)
+            # If baseline score is alrady high, exclude
+            .when(pl.col(symp) > 10 - pt)
+            .then(-1)
+            .when(change >= pt)
+            .then(1)
+            .otherwise(0)
+            .alias(targ_col)
+        )
+        exps.append(exp)
     main = main.with_columns(exps)
 
     return main

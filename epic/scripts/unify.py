@@ -9,9 +9,15 @@ import yaml
 from make_clinical_dataset.epic.combine import (
     combine_chemo_to_main_data,
     combine_demographic_to_main_data,
+    combine_event_to_main_data,
+    combine_radiation_to_main_data,
     merge_closest_measurements,
 )
-from make_clinical_dataset.epic.label import get_acu_labels
+from make_clinical_dataset.epic.label import (
+    get_acu_labels,
+    get_CTCAE_labels,
+    get_symptom_labels,
+)
 from make_clinical_dataset.epic.preprocess.demographic import get_demographic_data
 from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH, ROOT_DIR
 
@@ -46,6 +52,7 @@ def main():
     if not os.path.exists(output_dir): 
         os.makedirs(output_dir)
     chemo = pl.read_parquet(f'{data_dir}/chemo.parquet')
+    rad = pl.read_parquet(f'{DATA_DIR}/interim/radiation.parquet')
     lab = pl.read_parquet(f'{data_dir}/lab.parquet')
     lab = lab.with_columns(pl.col('mrn').cast(pl.Int64))
     sym = pl.read_parquet(f'{data_dir}/symptom.parquet')
@@ -55,12 +62,13 @@ def main():
         cfg = yaml.safe_load(file)
 
     if align_on == 'treatment-dates':
+        main_date_col = "assessment_date"
         main = (
             chemo
             .filter(pl.col('drug_type') == "direct")
             .select('mrn', 'treatment_date').unique()
-            .rename({'treatment_date': 'assessment_date'})
-            .sort('mrn', 'assessment_date')
+            .rename({'treatment_date': main_date_col})
+            .sort('mrn', main_date_col)
         )
     elif align_on.endswith('.parquet.gzip') or align_on.endswith('.parquet'):
         main = pl.read_parquet(align_on)
@@ -70,16 +78,17 @@ def main():
         raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
     
     # Extract features
-    main = combine_demographic_to_main_data(main, demog, main_date_col=main_date_col)
-    main = combine_chemo_to_main_data(main, chemo, main_date_col=main_date_col)
+    main = combine_demographic_to_main_data(main, demog, main_date_col)
+    main = combine_chemo_to_main_data(main, chemo, main_date_col, time_window=(-28,0))
+    main = combine_radiation_to_main_data(main, rad, main_date_col, time_window=(-28,0))
     main = merge_closest_measurements(main, lab, main_date_col, "obs_date", include_meas_date=True, time_window=(-5,0))
     main = merge_closest_measurements(main, sym, main_date_col, "obs_date", include_meas_date=True, time_window=(-30,0))
+    main = combine_event_to_main_data(main, acu, main_date_col, "ED_visit", lookback_window=5)
 
     # Extract targets
     main = get_acu_labels(main, acu, lookahead_window=[30, 60, 90])
-    from make_clinical_dataset.epr.label import get_CTCAE_labels
-    main = get_CTCAE_labels(main.to_pandas(), lab.to_pandas())
-    main = pl.from_pandas(main)
+    main = get_CTCAE_labels(main.lazy(), lab.lazy(), main_date_col, lookahead_window=30).collect()
+    main = get_symptom_labels(main, sym, main_date_col)
     
     date_cols = ['mrn'] + [col for col in main.columns if col.endswith('date')]
     str_cols = ['cancer_type', 'primary_site_desc', 'intent', 'drug_name', 'postal_code']
