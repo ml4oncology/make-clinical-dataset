@@ -28,7 +28,7 @@ def get_acu_labels(
 
     main = merge_closest_measurements(
         main, acu, main_date_col=main_date_col, meas_date_col="target_ED_date", 
-        merge_individually=False, direction='forward', time_window=(0, max(lookahead_window))
+        merge_individually=False, direction='forward', time_window=(1, max(lookahead_window))
     )
 
     for days in lookahead_window:

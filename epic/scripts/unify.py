@@ -86,7 +86,7 @@ def main():
     main = combine_event_to_main_data(main, acu, main_date_col, "ED_visit", lookback_window=5)
 
     # Extract targets
-    main = get_acu_labels(main, acu, lookahead_window=[30, 60, 90])
+    main = get_acu_labels(main, acu, main_date_col, lookahead_window=[30, 60, 90])
     main = get_CTCAE_labels(main.lazy(), lab.lazy(), main_date_col, lookahead_window=30).collect()
     main = get_symptom_labels(main, sym, main_date_col)
     
