@@ -112,6 +112,39 @@ def combine_chemo_to_main_data(
         main, chemo, main_date_col=main_date_col, meas_date_col="treatment_date", merge_individually=False,
         time_window=time_window
     )
+
+    # Create days since starting treatment column
+    days_since_start = (pl.col(main_date_col) - pl.col('first_treatment_date')).dt.total_days()
+    main = main.with_columns(days_since_start.alias('days_since_starting_treatment'))
+
+    # Create days since last treatment column
+    mask = main.select((pl.col(main_date_col) == pl.col('treatment_date')).alias('is_same'))
+    same_date = mask['is_same'].all() if isinstance(main, pl.DataFrame) else mask.collect()['is_same'].all()
+    if same_date: 
+        days_since_last = pl.col("treatment_date").diff().dt.total_days()
+        main = main.with_columns(days_since_last.over("mrn").alias('days_since_last_treatment'))
+    else:
+        days_since_last = (pl.col(main_date_col) - pl.col('treatment_date')).dt.total_days()
+        main = main.with_columns(days_since_last.alias('days_since_last_treatment'))
+
+    return main
+
+
+def combine_radiation_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame, 
+    rad: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    time_window: tuple[int, int] = (-28,0),
+) -> pl.DataFrame | pl.LazyFrame:
+    rad = (
+        rad
+        .select('mrn', 'treatment_start_date', 'dose_given')
+        .rename({'treatment_start_date': 'radiation_date', 'dose_given': 'radiation_dose_given'})
+    )
+    main = merge_closest_measurements(
+        main, rad, main_date_col=main_date_col, meas_date_col="radiation_date", merge_individually=False, 
+        time_window=time_window
+    )
     return main
 
 
@@ -134,5 +167,54 @@ def combine_demographic_to_main_data(
 
     # exclude patients under 18 years of age
     main = main.filter(pl.col('age') >= 18)
+
+    return main
+
+
+def combine_event_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame, 
+    event: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    event_name: str,
+    lookback_window: int = 5, # years
+) -> pl.DataFrame | pl.LazyFrame:
+    # Additional features to be added
+    # 1. date of most recent event prior to main date
+    prev_date_col = f'prev_{event_name}_date'
+    # 2. days since most recent event
+    days_since_col = f'days_since_prev_{event_name}'
+    # 3. number of events within the lookback window 
+    num_events_col = f'num_prior_{event_name}s_within_{lookback_window}_years'
+    # TODO: add length of stay
+
+    # Extract the event features
+    # main = main.lazy()
+    # event = event.lazy()
+    event_feats = (
+        main
+        .join(event, on="mrn", how="left") # WARNING: beware of exploding joins, use lazy evaluation when necessary
+        .filter(
+            (pl.col("admission_date") < pl.col(main_date_col)) &
+            (pl.col("admission_date") >= (pl.col(main_date_col) - pl.duration(days=365 * lookback_window)))
+        )
+        .group_by(["mrn", main_date_col])
+        .agg(
+            pl.len().alias(num_events_col),
+            pl.col("admission_date").max().alias(prev_date_col)
+        )
+        .with_columns(
+            (pl.col(main_date_col) - pl.col(prev_date_col)).dt.total_days().alias(days_since_col)
+        )
+    )
+
+    # Merge the event features to main
+    main = (   
+        main
+        .join(event_feats, on=["mrn", main_date_col], how="left")
+        .with_columns(
+            pl.col(num_events_col).fill_null(0),
+            pl.col(days_since_col).fill_null(365 * lookback_window)
+        )
+    )
 
     return main

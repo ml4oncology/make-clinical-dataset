@@ -2,7 +2,6 @@
 
 import pandas as pd
 import polars as pl
-from make_clinical_dataset.shared.constants import INFO_DIR, ROOT_DIR
 from make_clinical_dataset.epic.preprocess.acu import get_acu_data
 from make_clinical_dataset.epic.preprocess.esas import get_symp_data
 from make_clinical_dataset.epic.preprocess.lab import get_lab_data
@@ -12,6 +11,7 @@ from make_clinical_dataset.epic.preprocess.treatment import (
     get_radiation_data,
 )
 from make_clinical_dataset.epic.util import load_lab_map
+from make_clinical_dataset.shared.constants import INFO_DIR, ROOT_DIR
 
 # Paths and Configurations
 DATE = '2025-07-02'
