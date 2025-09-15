@@ -106,6 +106,10 @@ def combine_chemo_to_main_data(
     )
     # NOTE: group_by's maintain_order=True is not efficient, better to sort it again right after
     chemo = chemo.sort('mrn', 'treatment_date')
+    # add line of treatment
+    new_regimen = pl.col('first_treatment_date') != pl.col('first_treatment_date').shift()
+    palliative_intent = pl.col('intent') == 'palliative'
+    chemo = chemo.with_columns((new_regimen & palliative_intent).cum_sum().alias('line_of_treatment'))
 
     # Merge them together
     main = merge_closest_measurements(
