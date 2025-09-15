@@ -11,7 +11,7 @@ def get_demographic_data() -> pd.DataFrame:
     pc = pd.read_csv(f'{INFO_DIR}/postal_codes.csv')
 
     df = clean_demographic_data(df)
-    df = filter_demographic_data(df)
+    # df = filter_demographic_data(df)
 
     df = pd.merge(df, pc, on='mrn', how='left')
     return df
@@ -36,5 +36,6 @@ def clean_demographic_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def filter_demographic_data(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.drop(columns=['morphology_desc']).drop_duplicates()
+    # drop duplicates - keep it simple, only retain the first morphology description
+    df = df.drop_duplicates(subset=df.columns.drop('morphology_desc'))
     return df
