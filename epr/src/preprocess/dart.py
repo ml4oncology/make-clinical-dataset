@@ -32,9 +32,19 @@ def process_symptoms_data(df):
     df = df.reset_index()
 
     # rename the columns
-    df = df.rename(
-        columns={col: col.replace('esas_', '').replace('patient_', '') for col in cols}
-    )
+    col_map = {
+        "esas_pain": "pain",
+        "esas_tiredness": "tiredness",
+        "esas_nausea": "nausea",
+        "esas_depression": "depression",
+        "esas_anxiety": "anxiety",
+        "esas_drowsiness": "drowsiness",
+        "esas_appetite": "lack_of_appetite",
+        "esas_well_being": "well_being",
+        "esas_shortness_of_breath": "shortness_of_breath",
+        "patient_ecog": "ecog"
+    }
+    df = df.rename(columns=col_map)
 
     return df
 
