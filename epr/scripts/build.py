@@ -5,7 +5,6 @@ import argparse
 import os
 
 import pandas as pd
-
 from make_clinical_dataset.epr.preprocess.cancer_registry import get_demographic_data
 from make_clinical_dataset.epr.preprocess.clinic import get_clinical_notes_data
 from make_clinical_dataset.epr.preprocess.dart import get_symptoms_data
@@ -15,6 +14,7 @@ from make_clinical_dataset.epr.preprocess.opis import get_treatment_data
 from make_clinical_dataset.epr.preprocess.radiology import get_radiology_data
 from make_clinical_dataset.epr.preprocess.recist import get_recist_data
 from make_clinical_dataset.epr.util import load_included_drugs, load_included_regimens
+
 
 def get_last_seen_dates(data_dir: str):
     last_seen = pd.DataFrame()
@@ -29,12 +29,15 @@ def get_last_seen_dates(data_dir: str):
         last_seen_in_database = df.groupby('mrn')[date_col].max().rename(f'{dataset}_last_seen_date')
         last_seen = pd.concat([last_seen, last_seen_in_database], axis=1)
     last_seen['last_seen_date'] = last_seen.max(axis=1)
+    return last_seen
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', type=str, default='./data')
     args = parser.parse_args()
     return args
+
 
 def main():
     args = parse_args()
