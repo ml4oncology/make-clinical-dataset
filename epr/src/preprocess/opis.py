@@ -332,7 +332,7 @@ def clean_drug_name(drug: str) -> tuple[str, str]:
 ###############################################################################
 # Mergers
 ###############################################################################
-def merge_same_day_treatments(df, dosage: pd.DataFrame | None = None):
+def merge_same_day_treatments(df, dosage: pd.DataFrame | None = None, agg_funcs: dict[str, str] | None = None):
     """
     Collapse multiples rows with the same treatment day into one
 
@@ -340,6 +340,8 @@ def merge_same_day_treatments(df, dosage: pd.DataFrame | None = None):
     """
     if dosage is None:
         dosage = pd.DataFrame()
+    if agg_funcs is None:
+        agg_funcs = {}
 
     df = (
         df
@@ -368,6 +370,9 @@ def merge_same_day_treatments(df, dosage: pd.DataFrame | None = None):
 
             # sum the dosages together
             **{col: 'sum' for col in dosage.columns}
+
+            # additional aggregrators
+            **agg_funcs
         })
     )
     df = df.reset_index()
