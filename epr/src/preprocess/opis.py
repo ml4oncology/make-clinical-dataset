@@ -369,7 +369,7 @@ def merge_same_day_treatments(df, dosage: pd.DataFrame | None = None, agg_funcs:
             # 'chemo_flag': 'first'
 
             # sum the dosages together
-            **{col: 'sum' for col in dosage.columns}
+            **{col: 'sum' for col in dosage.columns},
 
             # additional aggregrators
             **agg_funcs
