@@ -6,15 +6,71 @@ We might have to rethink on the relevance of these as features, if we want to us
 """
 import pandas as pd
 from make_clinical_dataset.epr.util import get_excluded_numbers
-from make_clinical_dataset.shared.constants import ESAS_MAP
+from make_clinical_dataset.shared.constants import ESAS_MAP, SYMP_COLS
 
 
+###############################################################################
+# EPIC
+###############################################################################
+def get_epic_symp_data(
+    filepath: str,
+    id_to_mrn: dict[str, str],
+) -> pd.DataFrame:
+    """Load, clean, filter, process EPIC symptom survey data."""
+    df = pd.read_parquet(filepath)
+
+    # rename the columns
+    df = df.rename(columns={
+        "PATIENT_RESEARCH_ID": "patient",
+        "SURVEY_DATE": "obs_date",
+        "ESAS_PAIN": "pain",
+        "ESAS_TIREDNESS": "tiredness",
+        "ESAS_NAUSEA": "nausea",
+        "ESAS_DEPRESSION": "depression",
+        "ESAS_ANXIETY": "anxiety",
+        "ESAS_DROWSINESS": "drowsiness",
+        "ESAS_APPETITE": "lack_of_appetite",
+        "ESAS_WELL_BEING": "well_being",
+        "ESAS_SHORTNESS_OR_BREATH": "shortness_of_breath",
+        # "ESAS_CONSTIPATION": "constipation",
+        # "ESAS_DIARRHEA": "diarrhea", 
+        # "ESAS_SLEEP": "sleep",
+        "PATIENT_ECOG": "ecog",
+    })
+
+    # clean ecog entries
+    df['ecog'] = df['ecog'].replace('Not Applicable', None)
+    # some entries have the following format: score-description. Remove the descriptions
+    df['ecog'] = df['ecog'].str.split('-').str[0]
+
+    # fix dtypes
+    df[SYMP_COLS] = df[SYMP_COLS].astype(float)
+    df['obs_date'] = pd.to_datetime(df['obs_date']).dt.normalize()
+
+    # map the patient ID to mrns
+    df['mrn'] = df.pop('patient').map(id_to_mrn)
+
+    # keep only useful columns
+    df = df[['mrn', 'obs_date'] + SYMP_COLS].copy()
+
+    # handle conflicting data by taking the max
+    df = df.groupby(['mrn', 'obs_date']).agg('max').reset_index()
+
+    # sort by patient and date
+    df = df.sort_values(by=['mrn', 'obs_date'])
+
+    return df
+
+
+###############################################################################
+# Pre-EPIC
+###############################################################################
 def get_symp_data(
     id_to_mrn: dict[str, str], 
     data_dir: str | None = None,
     verbose: bool = False
 ) -> pd.DataFrame:
-    """Load, clean, filter, process symptom observation data."""
+    """Load, clean, filter, process Pre-EPIC symptom observation data."""
     if data_dir is None:
         data_dir = './data/raw/ESAS'
     symp = pd.read_parquet(data_dir)

@@ -3,7 +3,7 @@
 import pandas as pd
 import polars as pl
 from make_clinical_dataset.epic.preprocess.acu import get_acu_data
-from make_clinical_dataset.epic.preprocess.esas import get_symp_data
+from make_clinical_dataset.epic.preprocess.esas import get_epic_symp_data, get_symp_data
 from make_clinical_dataset.epic.preprocess.lab import get_lab_data
 from make_clinical_dataset.epic.preprocess.radiology import get_radiology_data
 from make_clinical_dataset.epic.preprocess.treatment import (
@@ -14,19 +14,21 @@ from make_clinical_dataset.epic.util import load_lab_map
 from make_clinical_dataset.shared.constants import INFO_DIR, ROOT_DIR
 
 # Paths and Configurations
-DATE = '2025-07-02'
-CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
-RT_PATH = f'{ROOT_DIR}/data/processed/treatment/radiation_{DATE}.parquet'
-
 DATE = '2025-01-08' # Please ask Wayne Uy about the merged_processed_cleaned_clinical_notes dataset
 ACU_PATH = f'{ROOT_DIR}/data/processed/clinical_notes/data_pull_{DATE}/merged_processed_cleaned_clinical_notes.parquet.gzip'
 
 DATE = '2025-03-29'
 LAB_DIR = f'{ROOT_DIR}/data/processed/lab/lab_{DATE}'
-ESAS_DIR = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}'
+PRE_EPIC_ESAS_DIR = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}'
 RAD_DIR = f'{ROOT_DIR}/data/processed/radiology/radiology_{DATE}'
-
 OUTPUT_DIR = f'{ROOT_DIR}/data/final/data_{DATE}/interim'
+
+DATE = '2025-07-02'
+CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
+RT_PATH = f'{ROOT_DIR}/data/processed/treatment/radiation_{DATE}.parquet'
+
+DATE = '2025-10-08'
+EPIC_ESAS_PATH = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}.parquet'
 
 
 def build_chemo_and_radiation_treatments(id_to_mrn: dict[str, int], drug_map: pl.LazyFrame):
@@ -43,7 +45,10 @@ def build_laboratory_tests(id_to_mrn: dict[str, int], lab_map: dict[str, str]):
 
 
 def build_symptoms(id_to_mrn: dict[str, int]):
-    symp = get_symp_data(id_to_mrn, data_dir=ESAS_DIR)
+    pre_epic_symp = get_symp_data(id_to_mrn, data_dir=PRE_EPIC_ESAS_DIR)
+    epic_symp = get_epic_symp_data(EPIC_ESAS_PATH, id_to_mrn)
+    symp = pd.concat([pre_epic_symp, epic_symp])
+    assert not symp.duplicated(subset=['mrn', 'obs_date']).any()
     symp.to_parquet(f'{OUTPUT_DIR}/symptom.parquet', compression='zstd', index=False)
 
 

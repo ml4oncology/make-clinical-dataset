@@ -122,7 +122,7 @@ OBS_MAP = {
         'Carcinoembryonic Antigen': 'carcinoembryonic_antigen',
         'Chloride': 'chloride',
         'Creatinine': 'creatinine',
-        'Estimated GFR': 'estimated_glomerular_filtration_rate',
+        'Estimated GFR': 'eGFR', # estimated glomerular filtration rate'
         'Glucose': 'glucose',
         'Magnesium': 'magnesium',
         'Phosphate': 'phosphate',
