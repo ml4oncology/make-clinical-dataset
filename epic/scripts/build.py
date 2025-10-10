@@ -3,6 +3,10 @@
 import pandas as pd
 import polars as pl
 from make_clinical_dataset.epic.preprocess.acu import get_acu_data
+from make_clinical_dataset.epic.preprocess.demographic import (
+    get_demographic_data,
+    get_diagnosis_data,
+)
 from make_clinical_dataset.epic.preprocess.esas import get_epic_symp_data, get_symp_data
 from make_clinical_dataset.epic.preprocess.lab import get_lab_data
 from make_clinical_dataset.epic.preprocess.radiology import get_radiology_data
@@ -28,13 +32,13 @@ CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
 RT_PATH = f'{ROOT_DIR}/data/processed/treatment/radiation_{DATE}.parquet'
 
 DATE = '2025-10-08'
+DEMOG_PATH = f'{ROOT_DIR}/data/processed/cancer_registry/demographic_{DATE}.parquet'
 EPIC_ESAS_PATH = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}.parquet'
 
 
 def build_chemo_and_radiation_treatments(id_to_mrn: dict[str, int], drug_map: pl.LazyFrame):
     chemo = get_chemo_data(CHEMO_PATH, id_to_mrn, drug_map)
     chemo.sink_parquet(f'{OUTPUT_DIR}/chemo.parquet')
-    # chemo.to_parquet(f'{OUTPUT_DIR}/chemo.parquet')
     rad = get_radiation_data(RT_PATH, id_to_mrn)
     rad.to_parquet(f'{OUTPUT_DIR}/radiation.parquet', compression='zstd', index=False)
 
@@ -60,6 +64,13 @@ def build_radiology_reports(id_to_mrn: dict[str, int]):
 def build_acute_care_use():
     acu = get_acu_data(ACU_PATH)
     acu.sink_parquet(f'{OUTPUT_DIR}/acute_care_use.parquet')
+
+
+def build_demographic(id_to_mrn: dict[str, int]):
+    diag = get_diagnosis_data()
+    demog = get_demographic_data(DEMOG_PATH, id_to_mrn)
+    demog = pd.merge(diag, demog, how='left', on='mrn')
+    demog.to_parquet(f'{OUTPUT_DIR}/demographic.parquet', compression='zstd', index=False)
     
 
 def main():
@@ -81,6 +92,7 @@ def main():
     build_symptoms(id_to_mrn)
     build_radiology_reports(id_to_mrn)
     build_acute_care_use()
+    build_demographic(id_to_mrn)
 
     
 if __name__ == '__main__':

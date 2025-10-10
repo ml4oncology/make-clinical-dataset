@@ -18,7 +18,6 @@ from make_clinical_dataset.epic.label import (
     get_CTCAE_labels,
     get_symptom_labels,
 )
-from make_clinical_dataset.epic.preprocess.demographic import get_demographic_data
 from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH, ROOT_DIR
 
 DATE = '2025-03-29'
@@ -57,7 +56,7 @@ def main():
     lab = lab.with_columns(pl.col('mrn').cast(pl.Int64))
     sym = pl.read_parquet(f'{data_dir}/symptom.parquet')
     acu = pl.read_parquet(f'{data_dir}/acute_care_use.parquet')
-    demog = pl.from_pandas(get_demographic_data())
+    demog = pl.read_parquet(f'{data_dir}/demographic.parquet')
     with open(config_path) as file:
         cfg = yaml.safe_load(file)
 
