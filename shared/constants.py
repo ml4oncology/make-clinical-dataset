@@ -31,17 +31,28 @@ OPIS_COL_MAP = { # 2023-02-21
 }
 CHEMO_EPIC_COL_MAP = { # 2025-07-02
     'PATIENT_RESEARCH_ID': 'patient_id',
-    'treamtment_plan_name': 'regimen',
-    'plan_start_date': 'first_treatment_date',
+    'protocol_name': 'regimen',
     'cycle_start_date': 'treatment_date',
     'cycle_number': 'cycle_number',
-    'med_id': 'uhn_drug_code', # special UHN drug code
-    'medication_name': 'drug_name',
-    'medication_dose': 'given_dose',
+    'med_Epic_id': 'uhn_drug_code',
+    'medication_order_name': 'drug_name',
+    'medication_generic_name': 'drug_name_ext',
+    'minimum_dose': 'given_dose',
+    'dose_unit': 'given_dose_unit',
+    'medcation_volume': 'diluent_volume',
+    'strength': 'drug_dose',
+    'current_dose_percentage_of_original_dose': 'percentage_of_ideal_dose',
     'dosing_weight': 'weight',
     'dosing_height': 'height',
-    'dosing_BSA': 'body_surface_area',
+    'dosing_bsa': 'body_surface_area',
     'treatment_intent': 'intent',
+    'route': 'route',
+    'frequency': 'frequency',
+    'treatment_plan_start_date_as_schedueled': 'first_scheduled_treatment_date',
+    'original_planned_cycle_start_date': 'scheduled_treatment_date',
+    'day_status': 'status',
+    'cycle_name': 'cycle_desc',
+    'order_category': 'treatment_category'
 }
 CHEMO_PRE_EPIC_COL_MAP = { # 2025-07-02
     'PATIENT_RESEARCH_ID': 'patient_id',
@@ -52,14 +63,15 @@ CHEMO_PRE_EPIC_COL_MAP = { # 2025-07-02
     'DIN': 'drug_id', # DIN - drug identification number - assigned by Health Canada
     'fdb_generic_code': 'fdb_drug_code', # FDB - First Databank - world's drug database leader
     'medication_name': 'drug_name', # 'medication_name',
-    'medication_dose': 'given_dose', # 'medication_dose', # beware some have "nan mg" and need to be combined with dose_ordered
+    'medication_dose': 'drug_dose', # 'medication_dose', # beware some have "nan mg" and need to be combined with dose_ordered
+    'medication_dose_ordered': 'drug_dose_ordered',
     'height': 'height',
     'weight': 'weight',
     'BSA': 'body_surface_area',
     'treatment_intent': 'intent',
-    'medication_dose_ordered': 'dose_ordered',
     'route': 'route',
-    'regimen_link': 'regimen_normalized' # very useful! we want all regimen to follow this format
+    'regimen_link': 'regimen_normalized', # very useful! we want all regimen to follow this format
+    'treatment_type': 'treatment_category'
 }
 RAD_COL_MAP = { # 2025-07-02
     'PATIENT_RESEARCH_ID': 'patient_id',
