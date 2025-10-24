@@ -15,7 +15,7 @@ def get_lab_data(
     if data_dir is None:
         data_dir = './data/raw/lab'
     # NOTE: df["COL"] only works in eager mode, use pl.col("COL") in lazy mode
-    lab = pl.read_parquet(f'{data_dir}/*.parquet').lazy()
+    lab = pl.scan_parquet(f'{data_dir}/*.parquet')
     lab = clean_lab_data(lab, id_to_mrn=id_to_mrn, lab_map=lab_map)
     lab = filter_lab_data(lab, verbose=verbose)
     lab = process_lab_data(lab)
@@ -35,7 +35,7 @@ def clean_lab_data(df: pl.LazyFrame, id_to_mrn: dict[str, int], lab_map: dict[st
 
     # map the patient ID to mrns
     df = df.with_columns(
-        pl.col("patient").replace(id_to_mrn)
+        pl.col("patient").replace(id_to_mrn).cast(pl.Int64)
     ).rename({'patient': 'mrn'})
 
     # rename the observations
@@ -113,7 +113,7 @@ def filter_units(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFrame:
 def process_lab_data(df: pl.LazyFrame) -> pl.DataFrame:
     """Sort and pivot the observation data."""
     df = df.with_columns(
-        pl.col("obs_datetime").dt.date().alias("obs_date")
+        pl.col("obs_datetime").dt.truncate('1d').alias("obs_date")
     )
 
     # save the units for each observation name

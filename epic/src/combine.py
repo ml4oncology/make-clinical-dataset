@@ -80,15 +80,15 @@ def combine_chemo_to_main_data(
 ) -> pl.DataFrame | pl.LazyFrame:
     """Combine chemo treatment information to the main data"""
     # Further preprocess the chemo
-    chemo = chemo.filter(pl.col('drug_type') == "direct")
+    # chemo = chemo.filter(pl.col('drug_type') == "direct")
     chemo = chemo.select(
-        'mrn', 'treatment_date', 'drug_name', 'first_treatment_date', 'intent', 
+        'mrn', 'treatment_date', 'first_treatment_date', 'intent',  # 'drug_name'
         'cycle_number', 'body_surface_area', 'height', 'weight'
     )
     # one-hot encode drugs - TODO: retrive the dosages instead of binary 0/1 for each drug
-    drugs = chemo['drug_name'].unique()
-    chemo = chemo.with_columns(pl.col('drug_name').alias('drug')) # keep the orignal string column
-    chemo = chemo.to_dummies(columns='drug')
+    # drugs = chemo['drug_name'].unique()
+    # chemo = chemo.with_columns(pl.col('drug_name').alias('drug')) # keep the orignal string column
+    # chemo = chemo.to_dummies(columns='drug')
     # merge same-day rows
     chemo = chemo.group_by('mrn', 'treatment_date').agg(
         pl.col('body_surface_area').mean(),
@@ -100,9 +100,9 @@ def combine_chemo_to_main_data(
         pl.col('first_treatment_date').last(),
         pl.col('intent').last(),
         # combine dosages together
-        *(pl.col(f'drug_{col}').max() for col in drugs),
+        # *(pl.col(f'drug_{col}').max() for col in drugs),
         # concat the drugs together
-        pl.col("drug_name").str.join("\n")
+        # pl.col("drug_name").str.join("\n")
     )
     # NOTE: group_by's maintain_order=True is not efficient, better to sort it again right after
     chemo = chemo.sort('mrn', 'treatment_date')

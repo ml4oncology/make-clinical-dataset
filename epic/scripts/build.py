@@ -36,9 +36,9 @@ DEMOG_PATH = f'{ROOT_DIR}/data/processed/cancer_registry/demographic_{DATE}.parq
 EPIC_ESAS_PATH = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}.parquet'
 
 
-def build_chemo_and_radiation_treatments(id_to_mrn: dict[str, int], drug_map: pl.LazyFrame):
+def build_chemo_and_radiation_treatments(id_to_mrn: dict[str, int], drug_map: pl.DataFrame):
     chemo = get_chemo_data(CHEMO_PATH, id_to_mrn, drug_map)
-    chemo.sink_parquet(f'{OUTPUT_DIR}/chemo.parquet')
+    chemo.write_parquet(f'{OUTPUT_DIR}/chemo.parquet')
     rad = get_radiation_data(RT_PATH, id_to_mrn)
     rad.to_parquet(f'{OUTPUT_DIR}/radiation.parquet', compression='zstd', index=False)
 
@@ -71,6 +71,23 @@ def build_demographic(id_to_mrn: dict[str, int]):
     demog = get_demographic_data(DEMOG_PATH, id_to_mrn)
     demog = pd.merge(diag, demog, how='left', on='mrn')
     demog.to_parquet(f'{OUTPUT_DIR}/demographic.parquet', compression='zstd', index=False)
+
+
+def build_last_seen_dates():
+    last_seen = pd.DataFrame()
+    dataset_map = {
+        'lab': 'obs_date', 
+        'symptom': 'obs_date', 
+        'chemo': 'treatment_date', 
+        'radiation': 'treatment_start_date',
+    }
+    for dataset, date_col in dataset_map.items():
+        df = pd.read_parquet(f'{OUTPUT_DIR}/{dataset}.parquet')
+        last_seen_in_database = df.groupby('mrn')[date_col].max().rename(f'{dataset}_last_seen_date')
+        last_seen = pd.concat([last_seen, last_seen_in_database], axis=1)
+    last_seen['last_seen_date'] = last_seen.max(axis=1)
+    last_seen = last_seen.reset_index(names='mrn')
+    last_seen.to_parquet(f'{OUTPUT_DIR}/last_seen_dates.parquet', compression='zstd', index=False)
     
 
 def main():
@@ -85,7 +102,7 @@ def main():
     drug_map = pd.read_excel(f'{INFO_DIR}/drug_names_normalized_reviewed.xlsx')
     columns = {'type': 'drug_type', 'dose': 'drug_dose', 'unit': 'drug_unit', 'orig_text': 'orig_drug_name'}
     drug_map = drug_map.rename(columns=columns).drop(columns=['failed_output'])
-    drug_map = pl.from_pandas(drug_map).lazy()
+    drug_map = pl.from_pandas(drug_map)
 
     build_chemo_and_radiation_treatments(id_to_mrn, drug_map)
     build_laboratory_tests(id_to_mrn, lab_map)
@@ -93,6 +110,7 @@ def main():
     build_radiology_reports(id_to_mrn)
     build_acute_care_use()
     build_demographic(id_to_mrn)
+    build_last_seen_dates()
 
     
 if __name__ == '__main__':

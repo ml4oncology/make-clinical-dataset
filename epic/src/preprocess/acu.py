@@ -9,7 +9,9 @@ import polars as pl
 
 def get_acu_data(filepath: str) -> pl.DataFrame | pl.LazyFrame:
     """Load, clean, filter, process acute care use data."""
-    df = pl.read_parquet(filepath).lazy() # Please ask Wayne Uy about the merged_processed_cleaned_clinical_notes dataset
+    # Please ask Wayne Uy about the merged_processed_cleaned_clinical_notes dataset
+    df = pl.read_parquet(filepath)
+    # df = pl.scan_parquet(filepath)
     df = clean_acu_data(df)
     df = filter_acu_data(df)
     df = process_acu_data(df)

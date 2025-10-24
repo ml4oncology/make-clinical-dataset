@@ -53,7 +53,6 @@ def main():
     chemo = pl.read_parquet(f'{data_dir}/chemo.parquet')
     rad = pl.read_parquet(f'{DATA_DIR}/interim/radiation.parquet')
     lab = pl.read_parquet(f'{data_dir}/lab.parquet')
-    lab = lab.with_columns(pl.col('mrn').cast(pl.Int64))
     sym = pl.read_parquet(f'{data_dir}/symptom.parquet')
     acu = pl.read_parquet(f'{data_dir}/acute_care_use.parquet')
     demog = pl.read_parquet(f'{data_dir}/demographic.parquet')
@@ -64,7 +63,7 @@ def main():
         main_date_col = "assessment_date"
         main = (
             chemo
-            .filter(pl.col('drug_type') == "direct")
+            # .filter(pl.col('drug_type') == "direct")
             .select('mrn', 'treatment_date').unique()
             .rename({'treatment_date': main_date_col})
             .sort('mrn', main_date_col)

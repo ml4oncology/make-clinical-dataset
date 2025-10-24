@@ -1,8 +1,8 @@
 import pandas as pd
 import polars as pl
+from make_clinical_dataset.epic.util import get_excluded_numbers
 from make_clinical_dataset.shared import logger
 from make_clinical_dataset.shared.constants import TRT_INTENT
-from make_clinical_dataset.epic.util import get_excluded_numbers
 
 
 ###############################################################################
@@ -39,11 +39,11 @@ def get_radiation_data(
 def get_chemo_data(
     filepath: str,
     id_to_mrn: dict[str, int], 
-    drug_map: pl.LazyFrame, 
+    drug_map: pl.DataFrame, 
     verbose: bool = False
-) -> pl.DataFrame | pl.LazyFrame:
+) -> pl.DataFrame:
     """Load, clean, filter, process chemotherapy data."""
-    df = pl.read_parquet(filepath).lazy()
+    df = pl.read_parquet(filepath)
 
     # map the patient ID to mrns
     df = df.with_columns(
@@ -51,8 +51,8 @@ def get_chemo_data(
     ).drop('patient_id')
 
     # map the normalized drug names
-    df = df.rename({"drug_name": "orig_drug_name"})
-    df = df.join(drug_map, on="orig_drug_name", how="left")
+    # df = df.rename({"drug_name": "orig_drug_name"})
+    # df = df.join(drug_map, on="orig_drug_name", how="left")
 
     df = clean_chemo_data(df)
     df = filter_chemo_data(df, verbose=verbose)
@@ -60,7 +60,7 @@ def get_chemo_data(
     return df
 
 
-def clean_chemo_data(df: pl.LazyFrame) -> pl.LazyFrame:
+def clean_chemo_data(df: pl.DataFrame) -> pl.DataFrame:
     # clean up features
     df = df.with_columns([
         # clean up the Cancer Care Ontario regimen entries
@@ -71,21 +71,18 @@ def clean_chemo_data(df: pl.LazyFrame) -> pl.LazyFrame:
     return df
 
 
-def filter_chemo_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFrame:
-    # drop duplicates
-    df = df.unique()
-
+def filter_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     # drop rows without treatment date
     mask = pl.col('treatment_date').is_not_null()
     if verbose:
         get_excluded_numbers(df, mask=~mask, context=" without a treatment date")
     df = df.filter(mask)
 
-    # drop rows without mapped drug name
-    mask = pl.col('drug_name').is_not_null()
-    if verbose:
-        get_excluded_numbers(df, mask=~mask, context=" without a mapped drug name")
-    df = df.filter(mask)
+    # # drop rows without mapped drug name
+    # mask = pl.col('drug_name').is_not_null()
+    # if verbose:
+    #     get_excluded_numbers(df, mask=~mask, context=" without a mapped drug name")
+    # df = df.filter(mask)
 
     # drop purely supportive regimens 
     drop_regimens = ["CARBO DESENSITIZATION"]
@@ -100,37 +97,40 @@ def filter_chemo_data(df: pl.LazyFrame, verbose: bool = False) -> pl.LazyFrame:
         get_excluded_numbers(df, mask=~mask, context=" with missing body_surface_area")
     df = df.filter(mask)
 
+    # drop duplicates
+    df = df.unique()
+
     return df
 
 
-def process_chemo_data(df: pl.LazyFrame, verbose: bool = False) -> pl.DataFrame | pl.LazyFrame:
+def process_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     # process given dosage information
-    df = process_given_dosage(df)
+    # df = process_given_dosage(df)
 
     # fill missing route entries
-    route_map = {
-        "IV": " IV ",
-        "PO": "CAPSULE|TABLET",
-        "SC": "SUBCUTANEOUS",
-        "IM": "INTRAMUSCULAR",
-        "IP": "INTRAPERITONEAL",
-    }
-    route_is_missing = pl.col("route").is_null()
-    for route, pattern in route_map.items():
-        contain_pattern = pl.col("orig_drug_name").str.contains(pattern)
-        df = df.with_columns(
-            pl.when(route_is_missing & contain_pattern)
-            .then(pl.lit(route))
-            .otherwise(pl.col("route"))
-            .alias("route")
-        )
+    # route_map = {
+    #     "IV": " IV ",
+    #     "PO": "CAPSULE|TABLET",
+    #     "SC": "SUBCUTANEOUS",
+    #     "IM": "INTRAMUSCULAR",
+    #     "IP": "INTRAPERITONEAL",
+    # }
+    # route_is_missing = pl.col("route").is_null()
+    # for route, pattern in route_map.items():
+    #     contain_pattern = pl.col("orig_drug_name").str.contains(pattern)
+    #     df = df.with_columns(
+    #         pl.when(route_is_missing & contain_pattern)
+    #         .then(pl.lit(route))
+    #         .otherwise(pl.col("route"))
+    #         .alias("route")
+    #     )
 
     # reorder select columns
     cols = [
         'mrn', 'treatment_date',
-        'drug_name', 'orig_drug_name', 'drug_type', 'drug_dose', 'drug_unit',
-        'given_dose', 'given_dose_unit', 'dose_ordered', 'route',
-        'drug_id', 'fdb_drug_code', 'uhn_drug_code',
+        # 'drug_name', 'orig_drug_name', 'drug_type', 'drug_dose', 'drug_unit',
+        # 'given_dose', 'given_dose_unit', 'dose_ordered', 'route',
+        # 'drug_id', 'fdb_drug_code', 'uhn_drug_code',
         'cco_regimen', 'regimen', 'department', 'intent',
         'body_surface_area', 'height', 'weight',
         'first_treatment_date', 'cycle_number', 'data_source', 
@@ -139,10 +139,10 @@ def process_chemo_data(df: pl.LazyFrame, verbose: bool = False) -> pl.DataFrame 
 
     # process duplicates
     df = df.unique() # remove exact duplicates post-processing
-    df = merge_partial_duplicates(df, verbose=verbose)
+    # df = merge_partial_duplicates(df, verbose=verbose)
 
     # sort the data
-    df = df.sort(by=['mrn', 'treatment_date', 'drug_name'])
+    df = df.sort(by=['mrn', 'treatment_date']) #, 'drug_name'])
 
     return df
 
@@ -150,7 +150,7 @@ def process_chemo_data(df: pl.LazyFrame, verbose: bool = False) -> pl.DataFrame 
 ###############################################################################
 # Helpers
 ###############################################################################
-def process_given_dosage(df: pl.LazyFrame) -> pl.LazyFrame:
+def process_given_dosage(df: pl.DataFrame) -> pl.DataFrame:
     """Process the given dosage information, split them into value and unit"""
     # Clean the dosing feature
     custom_dose_map = {
@@ -209,7 +209,7 @@ def process_given_dosage(df: pl.LazyFrame) -> pl.LazyFrame:
     return df
 
 
-def merge_partial_duplicates(df: pl.LazyFrame, verbose: bool = False) -> pl.DataFrame | pl.LazyFrame:
+def merge_partial_duplicates(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     """Merge partial duplicate rows and aggregate their non-duplicate info"""
     if verbose:
         df = df.collect() # need to be in eager mode to get the size
@@ -233,19 +233,6 @@ def merge_partial_duplicates(df: pl.LazyFrame, verbose: bool = False) -> pl.Data
         logger.info('Merged partial duplicates with different dosage fields for '
                     f'{count} ({(count)/(prev_size)*100:0.3f}%) rows')
         prev_size = df.shape[0]
-
-    # collapse rows where everything matches except body_surface_area, height, and weight
-    # average the body measurements
-    cols = [col for col in col_names if col not in ['body_surface_area', 'height', 'weight']]
-    df = df.group_by(cols).agg([
-        pl.col("body_surface_area").mean().alias("body_surface_area"),
-        pl.col("height").mean().alias("height"),
-        pl.col("weight").mean().alias("weight")
-    ])
-    if verbose:
-        count = prev_size - df.shape[0]
-        logger.info('Merged partial duplicate with different body measurements for '
-                    f'{count} ({(count)/(prev_size)*100:0.3f}%) rows')
 
     return df
 
