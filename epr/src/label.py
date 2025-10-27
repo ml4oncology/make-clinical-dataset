@@ -23,11 +23,13 @@ def get_death_labels(df: pd.DataFrame, lookahead_window: int | list[int] = 30) -
     ghost_mask = df['last_seen_date'] > df['date_of_death']
 
     for days in lookahead_window:
-        label = df['date_of_death'] < df['assessment_date'] + pd.Timedelta(days=days)
+        max_date = df['assessment_date'] + pd.Timedelta(days=days)
+        censored = df['date_of_death'].isna() & (df['last_seen_date'] < max_date)
+        label = df['date_of_death'] < max_date
         df[f'target_death_in_{days}d'] = label.astype(int)
 
-        # exclude patients who were seen after death
-        df.loc[ghost_mask, f'target_death_in_{days}d'] = -1
+        # exclude censored patients and patients seen after death if labeled positive
+        df.loc[censored | (ghost_mask & (label == 1)), f'target_death_in_{days}d'] = -1
 
     return df
 
@@ -51,7 +53,12 @@ def get_ED_labels(
     df = df.rename(columns={'ED_date': 'target_ED_date'})
 
     for days in lookahead_window:
-        df[f'target_ED_{days}d'] = df['target_ED_date'] < df['assessment_date'] + pd.Timedelta(days=days)  
+        max_date = df['assessment_date'] + pd.Timedelta(days=days)
+        censored = df['target_ED_date'].isna() & (df['last_seen_date'] < max_date)
+        immediate = df['target_ED_date'] < (df['assessment_date'] + pd.Timedelta(days=1))
+        df[f'target_ED_{days}d'] = (df['target_ED_date'] < max_date).astype(int)
+        # exclude censored patients or immediate visits
+        df.loc[censored | immediate, f'target_ED_{days}d'] = -1
 
     return df.sort_values(by=['mrn', 'assessment_date'])
 

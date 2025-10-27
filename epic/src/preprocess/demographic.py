@@ -24,7 +24,7 @@ def get_demographic_data(
     df.columns = df.columns.str.lower()
 
     # fix dtypes
-    df['death_date'] = pd.to_datetime(df['death_date'], format='ISO8601', utc=True)
+    df['death_date'] = pd.to_datetime(df['death_date'], format='ISO8601', utc=True).dt.tz_convert(None)
 
     # map the patient ID to mrns
     df['mrn'] = df.pop('patient').map(id_to_mrn)

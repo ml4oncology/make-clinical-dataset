@@ -74,12 +74,15 @@ def build_demographic(id_to_mrn: dict[str, int]):
 
 
 def build_last_seen_dates():
+    # TODO: use polars
+    # TODO: use all the raw data? or request from EPIC database the LAST_CONTACT_DATE
     last_seen = pd.DataFrame()
     dataset_map = {
         'lab': 'obs_date', 
         'symptom': 'obs_date', 
         'chemo': 'treatment_date', 
         'radiation': 'treatment_start_date',
+        'demographic': 'death_date',
     }
     for dataset, date_col in dataset_map.items():
         df = pd.read_parquet(f'{OUTPUT_DIR}/{dataset}.parquet')

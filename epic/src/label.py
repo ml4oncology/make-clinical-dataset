@@ -11,6 +11,36 @@ from make_clinical_dataset.shared.constants import (
 
 
 ###############################################################################
+# Death
+###############################################################################
+def get_death_labels(
+    main: pl.DataFrame | pl.LazyFrame, 
+    lookahead_window: int | list[int] = 30
+) -> pl.DataFrame | pl.LazyFrame:
+    if isinstance(lookahead_window, int):
+        lookahead_window = [lookahead_window]
+
+    for days in lookahead_window:
+        max_date = pl.col('assessment_date') + pl.duration(days=days)
+        main = main.with_columns(
+            # censored
+            pl.when(pl.col('death_date').is_null() & (pl.col('last_seen_date') < max_date))
+            .then(-1)
+            # survived 
+            .when(pl.col('death_date').is_null() | (pl.col('death_date') >= max_date))
+            .then(0)
+            # ghost
+            .when(pl.col('last_seen_date') > pl.col('death_date'))
+            .then(-1)
+            # died
+            .otherwise(1)
+            .alias(f"target_death_in_{days}d")
+        )
+
+    return main
+
+
+###############################################################################
 # Acute Care Use
 ###############################################################################
 def get_acu_labels(
@@ -28,12 +58,25 @@ def get_acu_labels(
 
     main = merge_closest_measurements(
         main, acu, main_date_col=main_date_col, meas_date_col="target_ED_date", 
-        merge_individually=False, direction='forward', time_window=(1, max(lookahead_window))
+        merge_individually=False, direction='forward', time_window=(0, max(lookahead_window))
     )
 
     for days in lookahead_window:
-        mask = pl.col('target_ED_date').fill_null(strategy="max") < pl.col(main_date_col) + pl.duration(days=days)
-        main = main.with_columns(mask.alias(f'target_ED_{days}d'))
+        max_date = pl.col('assessment_date') + pl.duration(days=days)
+        main = main.with_columns(
+            # censored
+            pl.when(pl.col('target_ED_date').is_null() & (pl.col('last_seen_date') < max_date))
+            .then(-1)
+            # no visit or outside lookahead window
+            .when(pl.col('target_ED_date').is_null() | (pl.col('target_ED_date') >= max_date))
+            .then(0)
+            # immediate visit
+            .when(pl.col('target_ED_date') < (pl.col('assessment_date') + pl.duration(days=1)))
+            .then(-1)
+            # yes visit 
+            .otherwise(1)
+            .alias(f"target_ED_{days}d")
+        )
 
     return main
 

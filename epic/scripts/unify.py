@@ -16,6 +16,7 @@ from make_clinical_dataset.epic.combine import (
 from make_clinical_dataset.epic.label import (
     get_acu_labels,
     get_CTCAE_labels,
+    get_death_labels,
     get_symptom_labels,
 )
 from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH, ROOT_DIR
@@ -56,6 +57,7 @@ def main():
     sym = pl.read_parquet(f'{data_dir}/symptom.parquet')
     acu = pl.read_parquet(f'{data_dir}/acute_care_use.parquet')
     demog = pl.read_parquet(f'{data_dir}/demographic.parquet')
+    last_seen = pl.read_parquet(f'{DATA_DIR}/interim/last_seen_dates.parquet')
     with open(config_path) as file:
         cfg = yaml.safe_load(file)
 
@@ -76,6 +78,7 @@ def main():
         raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
     
     # Extract features
+    main = main.join(last_seen.select('mrn', 'last_seen_date'), on="mrn", how="left")
     main = combine_demographic_to_main_data(main, demog, main_date_col)
     main = combine_chemo_to_main_data(main, chemo, main_date_col, time_window=(-28,0))
     main = combine_radiation_to_main_data(main, rad, main_date_col, time_window=(-28,0))
@@ -87,9 +90,10 @@ def main():
     main = get_acu_labels(main, acu, main_date_col, lookahead_window=[30, 60, 90])
     main = get_CTCAE_labels(main.lazy(), lab.lazy(), main_date_col, lookahead_window=30).collect()
     main = get_symptom_labels(main, sym, main_date_col)
+    main = get_death_labels(main, lookahead_window=[30, 365])
     
     date_cols = ['mrn'] + [col for col in main.columns if col.endswith('date')]
-    str_cols = ['cancer_type', 'primary_site_desc', 'intent', 'drug_name', 'postal_code']
+    str_cols = ['cancer_type', 'primary_site_desc', 'intent', 'postal_code'] # 'drug_name'
     feat_cols = ['mrn', main_date_col] + str_cols + [col for col in main.columns if col not in date_cols+str_cols]
     main_dates = main.select(date_cols)
     main_dates.write_parquet(f'{output_dir}/{output_file_prefix}_dates.parquet')
