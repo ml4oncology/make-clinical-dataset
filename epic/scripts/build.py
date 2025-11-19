@@ -28,16 +28,20 @@ RAD_DIR = f'{ROOT_DIR}/data/processed/radiology/radiology_{DATE}'
 OUTPUT_DIR = f'{ROOT_DIR}/data/final/data_{DATE}/interim'
 
 DATE = '2025-07-02'
+PRE_EPIC_CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
 RT_PATH = f'{ROOT_DIR}/data/processed/treatment/radiation_{DATE}.parquet'
 
 DATE = '2025-10-08'
 DEMOG_PATH = f'{ROOT_DIR}/data/processed/cancer_registry/demographic_{DATE}.parquet'
-CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
+
+DATE = '2025-11-03'
+EPIC_CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
 EPIC_ESAS_PATH = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}.parquet'
 
 
+
 def build_chemo_and_radiation_treatments(id_to_mrn: dict[str, int], drug_map: pl.DataFrame):
-    chemo = get_chemo_data(CHEMO_PATH, id_to_mrn, drug_map)
+    chemo = get_chemo_data(PRE_EPIC_CHEMO_PATH, id_to_mrn, drug_map)
     # chemo = pl.concat([chemo_pre_epic, chemo_epic], how="diagonal")
     chemo.write_parquet(f'{OUTPUT_DIR}/chemo.parquet')
     rad = get_radiation_data(RT_PATH, id_to_mrn)
@@ -51,8 +55,8 @@ def build_laboratory_tests(id_to_mrn: dict[str, int], lab_map: dict[str, str]):
 
 def build_symptoms(id_to_mrn: dict[str, int]):
     pre_epic_symp = get_symp_data(id_to_mrn, data_dir=PRE_EPIC_ESAS_DIR)
-    epic_symp = get_epic_symp_data(EPIC_ESAS_PATH, id_to_mrn)
-    symp = pd.concat([pre_epic_symp, epic_symp])
+    epic_symp = get_epic_symp_data(EPIC_ESAS_PATH)
+    symp = pd.concat([pre_epic_symp, epic_symp]).sort_values(by=['mrn', 'obs_date'])
     assert not symp.duplicated(subset=['mrn', 'obs_date']).any()
     symp.to_parquet(f'{OUTPUT_DIR}/symptom.parquet', compression='zstd', index=False)
 

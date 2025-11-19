@@ -12,16 +12,13 @@ from make_clinical_dataset.shared.constants import ESAS_MAP, SYMP_COLS
 ###############################################################################
 # EPIC
 ###############################################################################
-def get_epic_symp_data(
-    filepath: str,
-    id_to_mrn: dict[str, str],
-) -> pd.DataFrame:
+def get_epic_symp_data(filepath: str) -> pd.DataFrame:
     """Load, clean, filter, process EPIC symptom survey data."""
     df = pd.read_parquet(filepath)
 
     # rename the columns
     df = df.rename(columns={
-        "PATIENT_RESEARCH_ID": "patient",
+        "RESEARCH_ID": "mrn",
         "SURVEY_DATE": "obs_date",
         "ESAS_PAIN": "pain",
         "ESAS_TIREDNESS": "tiredness",
@@ -31,7 +28,7 @@ def get_epic_symp_data(
         "ESAS_DROWSINESS": "drowsiness",
         "ESAS_APPETITE": "lack_of_appetite",
         "ESAS_WELL_BEING": "well_being",
-        "ESAS_SHORTNESS_OR_BREATH": "shortness_of_breath",
+        "ESAS_SHORTNESS_OF_BREATH": "shortness_of_breath",
         # "ESAS_CONSTIPATION": "constipation",
         # "ESAS_DIARRHEA": "diarrhea", 
         # "ESAS_SLEEP": "sleep",
@@ -39,6 +36,7 @@ def get_epic_symp_data(
     })
 
     # clean ecog entries
+    # NOTE: ecog = 5 means death so make sure there are no label leakage.
     df['ecog'] = df['ecog'].replace('Not Applicable', None)
     # some entries have the following format: score-description. Remove the descriptions
     df['ecog'] = df['ecog'].str.split('-').str[0]
@@ -46,9 +44,6 @@ def get_epic_symp_data(
     # fix dtypes
     df[SYMP_COLS] = df[SYMP_COLS].astype(float)
     df['obs_date'] = pd.to_datetime(df['obs_date']).dt.normalize()
-
-    # map the patient ID to mrns
-    df['mrn'] = df.pop('patient').map(id_to_mrn)
 
     # keep only useful columns
     df = df[['mrn', 'obs_date'] + SYMP_COLS].copy()
