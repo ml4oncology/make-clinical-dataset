@@ -91,12 +91,6 @@ def filter_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
         get_excluded_numbers(df, mask=mask, context=" of purely supportive regimens")
     df = df.filter(~mask)
 
-    # drop rows without body_surface_area
-    mask = pl.col('body_surface_area').is_not_null()
-    if verbose:
-        get_excluded_numbers(df, mask=~mask, context=" with missing body_surface_area")
-    df = df.filter(mask)
-
     # drop duplicates
     df = df.unique()
 

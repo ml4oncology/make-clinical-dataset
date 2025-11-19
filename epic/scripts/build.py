@@ -28,11 +28,11 @@ RAD_DIR = f'{ROOT_DIR}/data/processed/radiology/radiology_{DATE}'
 OUTPUT_DIR = f'{ROOT_DIR}/data/final/data_{DATE}/interim'
 
 DATE = '2025-07-02'
-CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
 RT_PATH = f'{ROOT_DIR}/data/processed/treatment/radiation_{DATE}.parquet'
 
 DATE = '2025-10-08'
 DEMOG_PATH = f'{ROOT_DIR}/data/processed/cancer_registry/demographic_{DATE}.parquet'
+CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
 EPIC_ESAS_PATH = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}.parquet'
 
 

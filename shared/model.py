@@ -54,11 +54,11 @@ class ChemoEpicRecord(BaseModel): # 2025-07-02
     # infusion_rate_unit: str = Field(None, alias="infusion_rate_unit") # Literal['mL/hr', '*Unspecified']]
     first_scheduled_treatment_date: date = Field(None, alias='treatment_plan_start_date_as_schedueled')
     scheduled_treatment_date: date = Field(None, alias='original_planned_cycle_start_date')
-    status: str = Field(alias='day_status') # Literal['Deleted', 'Canceled', 'Completed', 'Deferred', 'Given Externally']
+    day_status: str = Field(alias='day_status')
+    cycle_status: str = Field(alias='cycle_status')
     cycle_desc: str = Field(None, alias="cycle_name")
     treatment_category: str = Field(None, alias='order_category')
     # "treamtment_plan_name" - same as protocol_name
-    # "cycle_status" - all "Completed"
     # "maximum_infusion_duration" - only 330 records
     # "maximum_infusion_rate" - only 44 records
     # "maximum_dose" - <3000 records
