@@ -29,42 +29,40 @@ OPIS_COL_MAP = { # 2023-02-21
     'Dose_Ord': 'dose_ordered',
     'CHEMO_FLAG': 'chemo_flag'
 }
-CHEMO_EPIC_COL_MAP = { # 2025-07-02
-    'PATIENT_RESEARCH_ID': 'patient_id',
-    'protocol_name': 'regimen',
-    'cycle_start_date': 'treatment_date',
-    'cycle_number': 'cycle_number',
-    'med_Epic_id': 'uhn_drug_code',
-    'medication_order_name': 'drug_name',
-    'medication_generic_name': 'drug_name_ext',
-    'minimum_dose': 'given_dose',
-    'dose_unit': 'given_dose_unit',
-    'medcation_volume': 'diluent_volume',
-    'strength': 'drug_dose',
-    'current_dose_percentage_of_original_dose': 'percentage_of_ideal_dose',
-    'dosing_weight': 'weight',
-    'dosing_height': 'height',
-    'dosing_bsa': 'body_surface_area',
-    'treatment_intent': 'intent',
-    'route': 'route',
-    'frequency': 'frequency',
-    'treatment_plan_start_date_as_schedueled': 'first_scheduled_treatment_date',
-    'original_planned_cycle_start_date': 'scheduled_treatment_date',
-    'day_status': 'status',
-    'cycle_name': 'cycle_desc',
-    'order_category': 'treatment_category'
+CHEMO_EPIC_COL_MAP = { # 2025-11-03
+    'RESEARCH_ID': 'patient_id',
+    'TRT_DATE_UTC': 'treatment_date',
+    'REGIMEN': 'regimen',
+    'FIRST_TRT_DATE_UTC': 'first_treatment_date',
+    'CYCLE_NUMBER': 'cycle_number',
+    'DRUG_NAME': 'drug_name',
+    'REGIMEN_DOSE': 'regimen_dose',
+    'DOSE_GIVEN': 'given_dose',
+    'DOSE_ORD_or_MIN_DOSE_ORD': 'dose_ordered',
+    'HEIGHT': 'height',
+    'WEIGHT': 'weight',
+    'BODY_SURFACE_AREA': 'body_surface_area',
+    'INTENT': 'intent',
+    'ROUTE': 'route',
+    'TX_SCHED_DATE': 'scheduled_treatment_date',
+    'DAY_STATUS': 'day_status',
+    'CYCLE_STATUS': 'cycle_status',
+    'MAR_ACTION': 'mar_action',
+    'DISCONTINUE_REASON': 'discontinue_reason',
+    'CANCEL_DAY_REASON': 'cancel_day_reason'
 }
+
 CHEMO_PRE_EPIC_COL_MAP = { # 2025-07-02
     'PATIENT_RESEARCH_ID': 'patient_id',
-    'treatment_plan': 'regimen', # 'treatment_plan',
+    'treatment_plan': 'regimen',
     'fist_treatment_date': 'first_treatment_date',
     'treatment_date': 'treatment_date',
     'cycle_num': 'cycle_number',
     'DIN': 'drug_id', # DIN - drug identification number - assigned by Health Canada
     'fdb_generic_code': 'fdb_drug_code', # FDB - First Databank - world's drug database leader
-    'medication_name': 'drug_name', # 'medication_name',
-    'medication_dose': 'drug_dose', # 'medication_dose', # beware some have "nan mg" and need to be combined with dose_ordered
-    'medication_dose_ordered': 'drug_dose_ordered',
+    'medication_name': 'drug_name',
+    'medication_dose': 'given_dose', # beware some have "nan mg" and need to be combined with dose_ordered
+    'medication_dose_ordered': 'dose_ordered',
     'height': 'height',
     'weight': 'weight',
     'BSA': 'body_surface_area',

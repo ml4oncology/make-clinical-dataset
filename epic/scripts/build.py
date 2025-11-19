@@ -38,6 +38,7 @@ EPIC_ESAS_PATH = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}.parquet'
 
 def build_chemo_and_radiation_treatments(id_to_mrn: dict[str, int], drug_map: pl.DataFrame):
     chemo = get_chemo_data(CHEMO_PATH, id_to_mrn, drug_map)
+    # chemo = pl.concat([chemo_pre_epic, chemo_epic], how="diagonal")
     chemo.write_parquet(f'{OUTPUT_DIR}/chemo.parquet')
     rad = get_radiation_data(RT_PATH, id_to_mrn)
     rad.to_parquet(f'{OUTPUT_DIR}/radiation.parquet', compression='zstd', index=False)

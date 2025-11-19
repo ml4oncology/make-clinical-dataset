@@ -37,10 +37,10 @@ rad = (
 rad.sink_parquet(f'{OUTPUT_DIR}/treatment/radiation_{DATE}.parquet')
 del rad
 
-# Process the Pre-EPIC chemotherapy (combine with EPIC chemo later)
-chemo_pre_epic = pl.scan_csv(f'{PRE_EPIC_CHEMO_DIR}/*.csv', encoding='utf8-lossy')
-chemo_pre_epic = (
-    chemo_pre_epic
+# Process the Pre-EPIC chemotherapy
+chemo = pl.read_csv(f'{PRE_EPIC_CHEMO_DIR}/*.csv', encoding='utf8-lossy')
+chemo = (
+    chemo
     .rename(CHEMO_PRE_EPIC_COL_MAP)
     .with_columns([
         # capture the department as a separate column
@@ -52,22 +52,19 @@ chemo_pre_epic = (
         pl.col('first_treatment_date').str.to_datetime(),
     ])
 )
-
+# separate the supportive vs chemo care
+mask = pl.col('treatment_category').is_in(['Chemo'])
+supportive, chemo = chemo.filter(~mask), chemo.filter(mask)
+chemo.write_parquet(f'{OUTPUT_DIR}/treatment/chemo_{DATE}.parquet')
+supportive.write_parquet(f'{OUTPUT_DIR}/treatment/supportive_{DATE}.parquet')
+del chemo, supportive
 
 ###############################################################################
 # 2025-10-08
 ###############################################################################
 # Paths and Configurations
 DATE = '2025-10-08'
-EPIC_CHEMO_DIR = f"{ROOT_DIR}/data/raw/data_pull_{DATE}/chemo"
-EPIC_ESAS_DIR = f"{ROOT_DIR}/data/raw/data_pull_{DATE}/ESAS"
 DEMOG_DIR = f"{ROOT_DIR}/data/raw/data_pull_{DATE}/demog"
-
-# Process EPIC ESAS data
-# convert multiple csvs into parquet
-esas = pl.read_csv(f'{EPIC_ESAS_DIR}/*.csv')
-esas.write_parquet(f'{OUTPUT_DIR}/ESAS/ESAS_{DATE}.parquet')
-del esas
 
 # Process demographic data
 # convert multiple jsons into parquet
@@ -81,15 +78,24 @@ demog = pl.DataFrame(demog)
 demog.write_parquet(f'{OUTPUT_DIR}/cancer_registry/demographic_{DATE}.parquet')
 del demog
 
+###############################################################################
+# 2025-11-03
+###############################################################################
+# Paths and Configurations
+DATE = '2025-11-03'
+EPIC_CHEMO_DIR = f"{ROOT_DIR}/data/raw/data_pull_{DATE}/chemo_EPIC"
+EPIC_ESAS_DIR = f"{ROOT_DIR}/data/raw/data_pull_{DATE}/ESAS_EPIC"
+
+# Process EPIC ESAS data
+# convert multiple csvs into parquet
+esas = pl.read_csv(f'{EPIC_ESAS_DIR}/*.csv')
+esas.write_parquet(f'{OUTPUT_DIR}/ESAS/ESAS_{DATE}.parquet')
+del esas
+
 # Process the EPIC chemotherapy
-chemo_epic = pl.scan_csv(f'{EPIC_CHEMO_DIR}/*.csv')
-num_cols = [
-    'weight', 'height', 'body_surface_area', 'cycle_number', 
-    'given_dose', 'diluent_volume', 'percentage_of_ideal_dose'
-]
-date_cols = ['treatment_date', 'scheduled_treatment_date', 'first_scheduled_treatment_date']
-chemo_epic = (
-    chemo_epic
+chemo = pl.read_csv(f'{EPIC_CHEMO_DIR}/*.csv')
+chemo = (
+    chemo
     .rename(CHEMO_EPIC_COL_MAP)
     .select(list(CHEMO_EPIC_COL_MAP.values()))
     .with_columns([
@@ -98,30 +104,11 @@ chemo_epic = (
         # add data source
         pl.lit('EPIC').alias('data_source'),
         # fix dtypes
-        *[pl.col(col).cast(pl.Float64) for col in num_cols],
-        *[pl.col(col).str.to_datetime() for col in date_cols]
+        # pl.col('treatment_date').alias('str_treatment_date'),
+        pl.col('treatment_date').str.to_datetime("%b %d %Y  %I:%M%p"),
+        pl.col('scheduled_treatment_date').str.to_datetime(),
+        pl.col('first_treatment_date').str.to_datetime(),
     ])
 )
-
-# Combine the chemotherapies (Pre-EPIC and EPIC)
-chemo = pl.concat([chemo_pre_epic, chemo_epic], how="diagonal")
-
-# Process the combined chemotherapy
-# replace departments that did not exist pre-epic as None
-pre_epic_deps = chemo_pre_epic.select(
-    pl.col("department").unique()
-).collect().to_numpy().flatten()
-chemo = chemo.with_columns(
-    pl.when(pl.col("department").is_in(pre_epic_deps))
-    .then(pl.col("department"))
-    .otherwise(None)
-)
-
-# Separate the supportive vs chemo care
-mask = pl.col('treatment_category').is_in(['Chemotherapy', 'Chemo', 'Take Home Cancer Drugs'])
-supportive = chemo.filter(~mask)
-chemo = chemo.filter(mask)
-
-# Write chemotherapy dataset
-chemo.collect().write_parquet(f'{OUTPUT_DIR}/treatment/chemo_{DATE}.parquet')
-supportive.collect().write_parquet(f'{OUTPUT_DIR}/treatment/supportive_{DATE}.parquet')
+chemo.write_parquet(f'{OUTPUT_DIR}/treatment/chemo_{DATE}.parquet')
+del chemo

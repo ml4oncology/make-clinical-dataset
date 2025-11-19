@@ -4,7 +4,6 @@ Centralized place for data schemas
 TODO: decide whether to keep this or not
 """
 from datetime import date
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,7 +27,76 @@ class OPISRecord(BaseModel): # 2023-02-21
     chemo_flag: str = Field(None, alias='CHEMO_FLAG')
 
 
-class ChemoEpicRecord(BaseModel): # 2025-07-02
+class ChemoEpicRecord(BaseModel): # 2025-11-03
+    mrn: str = Field(alias="RESEARCH_ID")
+    treatment_date: date = Field(None, alias='TRT_DATE_UTC')
+    regimen: str = Field(None, alias='REGIMEN')
+    first_treatment_date: date = Field(None, alias='FIRST_TRT_DATE_UTC')
+    cycle_number: int = Field(None, alias='CYCLE_NUMBER')
+    drug_name: str = Field(None, alias='DRUG_NAME')
+    regimen_dose: float = Field(None, alias='REGIMEN_DOSE')
+    given_dose: str = Field(None, alias='DOSE_GIVEN')
+    dose_ordered: str = Field(None, alias='DOSE_ORD_or_MIN_DOSE_ORD')
+    height: float = Field(None, alias='HEIGHT')
+    weight: float = Field(None, alias='WEIGHT')
+    body_surface_area: float = Field(None, alias='BODY_SURFACE_AREA')
+    intent: str = Field(None, alias='INTENT')
+    route: str = Field(None, alias='ROUTE')
+    scheduled_treatment_date: date = Field(None, alias='TX_SCHED_DATE')
+    day_status: str = Field(alias='DAY_STATUS')
+    cycle_status: str = Field(alias='CYCLE_STATUS')
+    mar_action: str = Field(None, alias='MAR_ACTION') # MAR = Medication Administration Record
+    discontinue_reason: str = Field(None, alias='DISCONTINUE_REASON')
+    cancel_day_reason: str = Field(None, alias='CANCEL_DAY_REASON')
+    # order_template_is_deleted_yn: str = Field(None, alias='ORDER_TEMPLATE_IS_DELETED_YN') # Literal['N']
+
+
+class ChemoPreEpicRecord(BaseModel): # 2025-07-02
+    patient_id: str = Field(alias='PATIENT_RESEARCH_ID')
+    treatment_date: date = Field(None, alias='treatment_date')
+    regimen: str = Field(None, alias='treatment_plan')
+    first_treatment_date: date = Field(None, alias='fist_treatment_date') 
+    cycle_number: float = Field(None, alias='cyclc_num')
+    drug_id: float = Field(None, alias='DIN') # DIN - drug identification number - assigned by Health Canada
+    fdb_drug_code: float = Field(None, alias='fdb_generic_code') # FDB - First Databank - world's drug database leader
+    drug_name: str = Field(None, alias='medication_name')
+    given_dose: str = Field(None, alias='medication_dose') # beware some have "nan mg" and need to be combined with drug_dose_ordered
+    dose_ordered: float = Field(None, alias='medication_dose_ordered')
+    height: float = Field(None, alias='height')
+    weight: float = Field(None, alias='weight')
+    body_surface_area: float = Field(None, alias='BSA')
+    intent: str = Field(None, alias='treatment_intent')
+    route: str = Field(None, alias='route')
+    cco_regimen: str = Field(None, alias='regimen_link')  # very useful! Ideally we want all regimen to follow the Cancer Care Ontario format
+    treatment_category: str = Field(None, alias='treatment_type')  # Literal['Pre', 'Post', 'Chemo']
+
+
+class RadiationRecord(BaseModel): # 2025-07-02
+    patient_id: str = Field(alias='PATIENT_RESEARCH_ID')
+    treatment_start_date: date = Field(alias='TX_Start_Date')
+    treatment_end_date: date = Field(None, alias='TX_End_Date')
+    site_treated: str = Field(None, alias='Site_Treated')
+    dose_prescribed: float = Field(None, alias='Dose_Prescribed')
+    fractions_prescribed: float = Field(None, alias='Fractions_Prescribed')
+    dose_given: float = Field(None, alias='Dose_Delivered')
+    fractions_given: float = Field(None, alias='Fractions_Delivered')
+    intent: str = Field(None, alias='TX_Intent')
+    diagnosis_icd_code: str = Field(None, alias='Diagnosis_ICD_Code')
+    diagnosis_desc: str = Field(None, alias='Diagnosis_Description')
+    diagnosis_category: str = Field(None, alias='Diagnosis_Category')
+    morphology: str = Field(None, alias='Morphology')
+
+
+OPIS_COL_MAP = {field.alias: name for name, field in OPISRecord.model_fields.items()}
+CHEMO_EPIC_COL_MAP = {field.alias: name for name, field in ChemoEpicRecord.model_fields.items()}
+CHEMO_PRE_EPIC_COL_MAP = {field.alias: name for name, field in ChemoPreEpicRecord.model_fields.items()}
+RAD_COL_MAP = {field.alias: name for name, field in RadiationRecord.model_fields.items()}
+
+
+###############################################################################
+# Unused / Old Schemas
+###############################################################################
+class AlternativeChemoEpicRecord(BaseModel): # 2025-10-08
     patient_id: str = Field(alias='PATIENT_RESEARCH_ID')
     treatment_date: date = Field(alias='cycle_start_date')
     regimen: str = Field(None, alias='protocol_name')
@@ -62,45 +130,3 @@ class ChemoEpicRecord(BaseModel): # 2025-07-02
     # "maximum_infusion_duration" - only 330 records
     # "maximum_infusion_rate" - only 44 records
     # "maximum_dose" - <3000 records
-
-
-class ChemoPreEpicRecord(BaseModel): # 2025-07-02
-    patient_id: str = Field(alias='PATIENT_RESEARCH_ID')
-    treatment_date: date = Field(None, alias='treatment_date')
-    regimen: str = Field(None, alias='treatment_plan')
-    first_treatment_date: date = Field(None, alias='fist_treatment_date') 
-    cycle_number: float = Field(None, alias='cyclc_num')
-    drug_id: float = Field(None, alias='DIN') # DIN - drug identification number - assigned by Health Canada
-    fdb_drug_code: float = Field(None, alias='fdb_generic_code') # FDB - First Databank - world's drug database leader
-    drug_name: str = Field(None, alias='medication_name')
-    drug_dose: str = Field(None, alias='medication_dose') # beware some have "nan mg" and need to be combined with drug_dose_ordered
-    drug_dose_ordered: float = Field(None, alias='medication_dose_ordered')
-    height: float = Field(None, alias='height')
-    weight: float = Field(None, alias='weight')
-    body_surface_area: float = Field(None, alias='BSA')
-    intent: str = Field(None, alias='treatment_intent')
-    route: str = Field(None, alias='route')
-    cco_regimen: str = Field(None, alias='regimen_link')  # very useful! we want all regimen to follow the Cancer Care Ontario format
-    treatment_category: str = Field(None, alias='treatment_type')  # Literal['Pre', 'Post', 'Chemo']
-
-
-class RadiationRecord(BaseModel):
-    patient_id: str = Field(alias='PATIENT_RESEARCH_ID')
-    treatment_start_date: date = Field(alias='TX_Start_Date')
-    treatment_end_date: date = Field(None, alias='TX_End_Date')
-    site_treated: str = Field(None, alias='Site_Treated')
-    dose_prescribed: float = Field(None, alias='Dose_Prescribed')
-    fractions_prescribed: float = Field(None, alias='Fractions_Prescribed')
-    dose_given: float = Field(None, alias='Dose_Delivered')
-    fractions_given: float = Field(None, alias='Fractions_Delivered')
-    intent: str = Field(None, alias='TX_Intent')
-    diagnosis_icd_code: str = Field(None, alias='Diagnosis_ICD_Code')
-    diagnosis_desc: str = Field(None, alias='Diagnosis_Description')
-    diagnosis_category: str = Field(None, alias='Diagnosis_Category')
-    morphology: str = Field(None, alias='Morphology')
-
-
-OPIS_COL_MAP = {field.alias: name for name, field in OPISRecord.model_fields.items()}
-CHEMO_EPIC_COL_MAP = {field.alias: name for name, field in ChemoEpicRecord.model_fields.items()}
-CHEMO_PRE_EPIC_COL_MAP = {field.alias: name for name, field in ChemoPreEpicRecord.model_fields.items()}
-RAD_COL_MAP = {field.alias: name for name, field in RadiationRecord.model_fields.items()}
