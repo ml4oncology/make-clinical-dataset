@@ -2,7 +2,12 @@
 
 import pandas as pd
 import polars as pl
-from make_clinical_dataset.epic.preprocess.acu import get_acu_data, get_triage_data
+from make_clinical_dataset.epic.preprocess.acu import (
+    get_admission_dates,
+    get_discharge_data,
+    get_epic_admission_dates,
+    get_triage_data,
+)
 from make_clinical_dataset.epic.preprocess.demographic import (
     get_demographic_data,
     get_diagnosis_data,
@@ -19,7 +24,7 @@ from make_clinical_dataset.shared.constants import INFO_DIR, ROOT_DIR
 
 # Paths and Configurations
 DATE = '2025-01-08' # Please ask Wayne Uy about the merged_processed_cleaned_clinical_notes dataset
-ACU_PATH = f'{ROOT_DIR}/data/processed/clinical_notes/data_pull_{DATE}/merged_processed_cleaned_clinical_notes.parquet.gzip'
+NOTES_PATH = f'{ROOT_DIR}/data/processed/clinical_notes/data_pull_{DATE}/merged_processed_cleaned_clinical_notes.parquet.gzip'
 
 DATE = '2025-03-29'
 ER_TRIAGE_DIR = f'{ROOT_DIR}/data/processed/ED/ED_{DATE}'
@@ -64,15 +69,19 @@ def build_symptoms(id_to_mrn: dict[str, int]):
 
 def build_radiology_reports(id_to_mrn: dict[str, int]):
     reports = get_radiology_data(id_to_mrn, data_dir=RAD_DIR)
-    reports.write_parquet(f'{OUTPUT_DIR}/reports.parquet')
+    reports.write_parquet(f'{OUTPUT_DIR}/radiology_reports.parquet')
     
 
 def build_acute_care_use():
-    acu = get_acu_data(ACU_PATH)
-    acu.sink_parquet(f'{OUTPUT_DIR}/acute_care_use.parquet')
+    discharge = get_discharge_data(NOTES_PATH)
+    discharge.sink_parquet(f'{OUTPUT_DIR}/discharge_summary.parquet')
 
     triage = get_triage_data(ER_TRIAGE_DIR)
     triage.write_parquet(f'{OUTPUT_DIR}/triage.parquet')
+
+    epic_admit_dates = get_epic_admission_dates(EPIC_ED_ADMIT_PATH)
+    admit_dates = get_admission_dates(discharge, epic_admit_dates)
+    admit_dates.write_parquet(f'{OUTPUT_DIR}/ED_admission_dates.parquet')
 
 
 def build_demographic(id_to_mrn: dict[str, int]):
@@ -100,7 +109,7 @@ def build_last_seen_dates():
     last_seen['last_seen_date'] = last_seen.max(axis=1)
     last_seen = last_seen.reset_index(names='mrn')
     last_seen.to_parquet(f'{OUTPUT_DIR}/last_seen_dates.parquet', compression='zstd', index=False)
-    
+
 
 def main():
     # get the lab name mapping
