@@ -1,8 +1,11 @@
 """
 Module to preprocess emergency department visits and hospitalizations (aka ACU - acute care use)
 
-NOTE: we currently use discharge summaries to indicate acute care use, 
+NOTE: We currently use discharge summaries (from clinical notes data) to indicate acute care use, 
 which may include palliative care and surgical appointments as well
+
+NOTE: Why are we not using ED data from separate.py? Because it is mostly triage assessment data,
+and we do not know if patients were admitted after triage assessment.
 """
 import polars as pl
 
@@ -106,4 +109,21 @@ def extract_admission_and_discharge_dates(df: pl.DataFrame | pl.LazyFrame) -> pl
         parse_date_expr("discharge_date_raw").alias("discharge_date"),
     ])
 
+    return df
+
+###############################################################################
+# Triage Assessment
+###############################################################################
+def get_triage_data(data_dir: str) -> pl.DataFrame:
+    """Load, clean, filter, process triage assessment data."""
+    df = pl.scan_parquet(f'{data_dir}/*.parquet')
+    df = df.unique()
+    obs_val = pl.col("obs_val_num").cast(str) + pl.lit(" ") + pl.col("obs_unit")
+    df = df.with_columns(
+        pl.when(pl.col("obs_val_str").is_not_null()).then(pl.col("obs_val_str")).otherwise(obs_val).alias("obs_val"),
+        pl.coalesce([pl.col("effective_datetime"), pl.col("occurrence_datetime_from_order")]).alias("datetime"),
+    ).drop(['obs_val_str', 'obs_val_num', 'obs_unit', 'effective_datetime', 'occurrence_datetime_from_order'])
+    df = df.collect()
+    df = df.pivot(on='obs_name', values='obs_val', aggregate_function=pl.element().str.join("/n/n"))
+    df = df.sort('patient', 'datetime')
     return df

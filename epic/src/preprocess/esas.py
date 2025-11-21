@@ -7,6 +7,7 @@ We might have to rethink on the relevance of these as features, if we want to us
 import pandas as pd
 from make_clinical_dataset.epr.util import get_excluded_numbers
 from make_clinical_dataset.shared.constants import ESAS_MAP, SYMP_COLS
+from ml_common.util import load_table
 
 
 ###############################################################################
@@ -14,7 +15,7 @@ from make_clinical_dataset.shared.constants import ESAS_MAP, SYMP_COLS
 ###############################################################################
 def get_epic_symp_data(filepath: str) -> pd.DataFrame:
     """Load, clean, filter, process EPIC symptom survey data."""
-    df = pd.read_parquet(filepath)
+    df = load_table(filepath)
 
     # rename the columns
     df = df.rename(columns={

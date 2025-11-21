@@ -1,7 +1,8 @@
 """Process 
 1. the pre-epic and epic chemo and radiation therapy datasets
 2. the epic symptom dataset
-3. the demographic dataset
+3. the epic emergency department admission dataset
+4. the demographic dataset
 """
 import glob
 import json
@@ -84,7 +85,14 @@ del demog
 # Paths and Configurations
 DATE = '2025-11-03'
 EPIC_CHEMO_DIR = f"{ROOT_DIR}/data/raw/data_pull_{DATE}/chemo_EPIC"
+EPIC_ED_DIR = f"{ROOT_DIR}/data/raw/data_pull_{DATE}/ED_EPIC"
 EPIC_ESAS_DIR = f"{ROOT_DIR}/data/raw/data_pull_{DATE}/ESAS_EPIC"
+
+# Process EPIC emergency department admissions data
+# convert multiple csvs into parquet
+ed = pl.read_csv(f'{EPIC_ED_DIR}/*.csv')
+ed.write_parquet(f'{OUTPUT_DIR}/ED/ED_{DATE}.parquet')
+del ed
 
 # Process EPIC ESAS data
 # convert multiple csvs into parquet
