@@ -69,7 +69,9 @@ class GroqPrompter():
             generated_text = self.generate_response(user_input=text, model_name=model_name)
             try:
                 result = json.loads(generated_text)
-            except json.JSONDecodeError:
+                if isinstance(result, list):
+                    raise ValueError("Received a list instead of a dict")
+            except (json.JSONDecodeError, ValueError):
                 result = {'failed_output': generated_text}
             result['drug_name'] = text
             results.append(result)
@@ -91,17 +93,6 @@ class GroqPrompter():
             model_name: The name of the model to use for inference. Must be supported by Groq.
             response_format: The Pydantic model that defines the expected JSON response format
                 If not provided, does not systematically enforce structured JSON output.
-
-        NOTE: response format is only currently supported by 
-            moonshotai/kimi-k2-instruct  - 1k requests per day
-            meta-llama/llama-4-maverick-17b-128e-instruct  - 1k requests per day
-            meta-llama/llama-4-scout-17b-16e-instruct  - 1k requests per day
-
-        API Rate limit quota for the other models:
-            llama3-70b-8192 - 14.4k requests per day
-            llama-3.3-70b-versatile - 1k requests per day
-
-        NOTE: llama3-70b-8192 does not support tool or function calling, including internet lookups or browsing
         """
         kwargs = {}
         if response_format is not None:
@@ -204,7 +195,7 @@ Output: {"drug_name": "pembrolizumab", "type": "direct", "dose": 50, "unit": "ml
     results = prompter.generate_responses(
         dataset=unprocessed_drugs['drug_name'].tolist(), 
         save_path=save_path, 
-        model_name="llama-3.3-70b-versatile"
+        model_name="openai/gpt-oss-120b", # "llama-3.3-70b-versatile"
     )
 
     # set all drugs used in trial and studies as study_drug
