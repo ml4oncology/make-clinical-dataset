@@ -1,6 +1,5 @@
 import pandas as pd
 import polars as pl
-
 from make_clinical_dataset.shared import logger
 from make_clinical_dataset.shared.constants import OBS_MAP
 
@@ -23,7 +22,10 @@ def load_lab_map(data_dir: str | None = None) -> dict[str, str]:
 ###############################################################################
 # Helpers
 ###############################################################################
-def get_excluded_numbers(df: pl.LazyFrame, mask: pl.Expr, context: str = ".") -> None:
+def get_excluded_numbers(df: pl.LazyFrame | pl.DataFrame, mask: pl.Expr, context: str = ".") -> None:
     """Report the number of rows that were excluded"""
-    mean, count = df.select(mask.mean()).collect().item(), df.select(mask.sum()).collect().item()
+    if isinstance(df, pl.DataFrame):
+        mean, count = df.select(mask.mean()).item(), df.select(mask.sum()).item()   
+    else:
+        mean, count = df.select(mask.mean()).collect().item(), df.select(mask.sum()).collect().item()
     logger.info(f'Removing {count} ({mean*100:0.3f}%) rows{context}')

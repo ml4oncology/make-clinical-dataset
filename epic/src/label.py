@@ -52,9 +52,7 @@ def get_acu_labels(
     if isinstance(lookahead_window, int):
         lookahead_window = [lookahead_window]
 
-    # Further preprocess the acu data
-    acu = acu.group_by('mrn', 'admission_date').agg(pl.col('clinical_notes').str.join("\n\n"))
-    acu = acu.rename({'admission_date': 'target_ED_date', "clinical_notes": "target_ED_note"})
+    acu = acu.rename({'admission_date': 'target_ED_date'})
 
     main = merge_closest_measurements(
         main, acu, main_date_col=main_date_col, meas_date_col="target_ED_date", 

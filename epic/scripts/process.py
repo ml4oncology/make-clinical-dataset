@@ -112,7 +112,7 @@ chemo = (
         # add data source
         pl.lit('EPIC').alias('data_source'),
         # fix dtypes
-        # pl.col('treatment_date').alias('str_treatment_date'),
+        # pl.col('treatment_date').alias('str_treatment_date'), # for debugging
         pl.col('treatment_date').str.to_datetime("%b %d %Y  %I:%M%p"),
         pl.col('scheduled_treatment_date').str.to_datetime(),
         pl.col('first_treatment_date').str.to_datetime(),
