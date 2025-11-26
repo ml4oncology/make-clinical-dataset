@@ -1,6 +1,6 @@
 import pandas as pd
 import polars as pl
-from make_clinical_dataset.epic.util import get_excluded_numbers
+from make_clinical_dataset.epic.util import get_excluded_numbers, load_table
 from make_clinical_dataset.shared import logger
 from make_clinical_dataset.shared.constants import TRT_INTENT
 
@@ -34,7 +34,124 @@ def get_radiation_data(
 
 
 ###############################################################################
-# Chemotherapy
+# EPIC Chemotherapy
+###############################################################################
+def get_epic_chemo_data(
+    filepath: str,
+    drug_map: pl.DataFrame, 
+    verbose: bool = False
+) -> pl.DataFrame:
+    """Load, clean, filter, process EPIC chemotherapy data.
+    
+    NOTE: There's too many differences between retrospective code (in ml4oncology/make-clinical-dataset) 
+    and deployment code (in ml4oncology/model-deployer) requirements, best to keep them separate for now.
+    """
+    df = load_table(filepath)
+
+    # map the normalized drug names
+    df = df.join(drug_map, on="drug_name", how="left")
+
+    df = clean_epic_chemo_data(df)
+    df = filter_epic_chemo_data(df, verbose=verbose)
+    df = process_epic_chemo_data(df, verbose=verbose)
+    return df
+
+
+def clean_epic_chemo_data(df: pl.DataFrame) -> pl.DataFrame:
+    body_meas_cols = ["height", "weight", "body_surface_area"]
+
+    route_map = {
+        "intravenous": "IV",
+        "subcutaneous": "SC",
+        "oral": "PO",
+        "intraperitoneal": "IP",
+        "intramuscular": "IM",
+        "intravenous push": "IVP",
+        "intralesional": "IL",
+        "sublingual": "SL",
+        "intratumoral": "IT", # Intrathecal?
+    }
+
+    # clean up features
+    df = df.with_columns([
+        # abbreviate the administration routes
+        pl.col('route').replace(route_map),
+        # clean up intent of treatment
+        pl.col('intent').str.to_lowercase(),
+        # take the avg patient body measurements for each date
+        *[pl.col(col).mean().over(['mrn', 'treatment_date']) for col in body_meas_cols]
+    ])
+
+    # forward fill patient body measurements
+    df = df.sort(by=['mrn', 'treatment_date']) # need to sort first
+    df = df.with_columns([pl.col(col).forward_fill().over("mrn") for col in body_meas_cols])
+
+    return df
+
+
+def filter_epic_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
+    # drop rows with incomplete treatment status
+    mask = pl.col('day_status') == "Completed"
+    if verbose:
+        get_excluded_numbers(df, mask=~mask, context=" with incomplete treatment status")
+    df = df.filter(mask)
+
+    # drop rows without treatment date
+    mask = pl.col('treatment_date').is_not_null()
+    if verbose:
+        get_excluded_numbers(df, mask=~mask, context=" without a treatment date")
+    df = df.filter(mask)
+
+    # drop rows without mapped drug name
+    mask = pl.col('drug_name_normalized').is_not_null()
+    if verbose:
+        get_excluded_numbers(df, mask=~mask, context=" without a mapped drug name")
+    df = df.filter(mask)
+
+    # drop rows with given dosage values of 0 (i.e. 0 mg, 0 mL, 0 mEq, etc) or null
+    mask = pl.col('given_dose').str.starts_with('0 ') | pl.col('given_dose').is_null()
+    if verbose:
+        get_excluded_numbers(df, mask=mask, context=" with 0 or null given dosage values")
+    # even though many rows are discarded, the number of unique (mrn, treatment_date) is not significantly affected
+    # i.e these are duplicate / erroneous / unnecessary entries
+    before = df.unique(subset=['mrn', 'treatment_date']).height
+    after = df.filter(~mask).unique(subset=['mrn', 'treatment_date']).height
+    assert (before - after) / before < 0.01
+    df = df.filter(~mask)
+
+    return df
+
+
+def process_epic_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
+    # process dosage data - split into value and unit
+    for col in ["given_dose", "dose_ordered", "regimen_dose"]:
+        df = df.with_columns(
+            pl.col(col).str.split(" ").alias("split")
+        ).with_columns([
+            pl.col("split").list.get(0).cast(pl.Float64).alias(col),
+            pl.col("split").list.get(1).alias(f"{col}_unit"),
+        ]).drop("split")
+
+    # reorder select columns
+    cols = [
+        'mrn', 'treatment_date', 'first_treatment_date', 'cycle_number', 
+        'drug_name_normalized', 'given_dose', 'given_dose_unit', 
+        'body_surface_area', 'height', 'weight', 
+        'intent', 'regimen', 'department',
+        'drug_name', 'drug_type', 'drug_dose', 'drug_unit',
+        'dose_ordered', 'dose_ordered_unit', 'regimen_dose', 'regimen_dose_unit', 
+        'route', 'data_source'
+        # 'scheduled_treatment_date', 'day_status', 'cycle_status', 'mar_action', 'discontinue_reason', 'cancel_day_reason'
+    ]
+    df = df.select(cols)
+
+    # process full and partial duplicates
+    df = process_duplicates(df, verbose=verbose)
+
+    return df
+
+###############################################################################
+# Pre-EPIC Chemotherapy
 ###############################################################################
 def get_chemo_data(
     filepath: str,
@@ -69,7 +186,9 @@ def clean_chemo_data(df: pl.DataFrame) -> pl.DataFrame:
         # clean up intent of treatment
         pl.col('intent').replace(TRT_INTENT).str.to_lowercase(),
         # take the avg patient body measurements for each date
-        *[pl.col(col).mean().over(['mrn', 'treatment_date']) for col in body_meas_cols]
+        *[pl.col(col).mean().over(['mrn', 'treatment_date']) for col in body_meas_cols],
+        # fix dtypes
+        pl.col('cycle_number').cast(pl.Int64),
     ])
 
     # forward fill patient body measurements
@@ -92,19 +211,12 @@ def filter_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
         get_excluded_numbers(df, mask=~mask, context=" without a mapped drug name")
     df = df.filter(mask)
 
-    # drop purely supportive regimens 
-    drop_regimens = ["CARBO DESENSITIZATION"]
-    mask = pl.col('regimen').is_in(drop_regimens)
-    if verbose:
-        get_excluded_numbers(df, mask=mask, context=" of purely supportive regimens")
-    df = df.filter(~mask)
-
     return df
 
 
 def process_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     # process given dosage information
-    df = process_given_dosage(df)
+    df = process_given_dosage(df, verbose=verbose)
 
     # fill missing route entries
     route_map = {
@@ -131,8 +243,8 @@ def process_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
         'body_surface_area', 'height', 'weight', 
         'intent', 'cco_regimen', 'regimen', 'department',
         'drug_name', 'drug_type', 'drug_dose', 'drug_unit',
-        'dose_ordered', 'route', 'drug_id', 'fdb_drug_code', 
-        'data_source'
+        'dose_ordered', 'route', 'data_source'
+        # 'drug_id', 'fdb_drug_code', 'treatment_category'
     ]
     df = df.select(cols)
 
@@ -142,10 +254,7 @@ def process_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     return df
 
 
-###############################################################################
-# Helpers
-###############################################################################
-def process_given_dosage(df: pl.DataFrame) -> pl.DataFrame:
+def process_given_dosage(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     """Process the given dosage information, split them into value and unit"""
     # Clean the dosing feature
     custom_dose_map = {
@@ -199,9 +308,19 @@ def process_given_dosage(df: pl.DataFrame) -> pl.DataFrame:
 
     # Convert to float
     df = df.with_columns(pl.col("given_dose").cast(pl.Float64))
+
+    # Drop rows with value of 0 (i.e. 0 mg, 0 mL, 0 mEq, etc)
+    mask = pl.col('given_dose') == 0
+    if verbose:
+        get_excluded_numbers(df, mask=mask, context=" with given dosage value of 0")
+    df = df.filter(~mask)
+
     return df
 
 
+###############################################################################
+# Helpers
+###############################################################################
 def process_duplicates(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     """Merge partial duplicate rows and aggregate their non-duplicate info"""
     if verbose:
@@ -211,23 +330,21 @@ def process_duplicates(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
         col_names = df.collect_schema().names()
 
     # remove any full duplicates
+    # NOTE: maintain_order=True is not efficient, better to sort again at the end
     df = df.unique()
 
     # collapse rows where everything matches except given_dose and dose_ordered
     # sum up the dosages
     cols = [col for col in col_names if col not in ['given_dose', 'dose_ordered']]
-    mask = pl.col("given_dose").is_null() # don't convert missing values to 0
-    df1, df2 = df.filter(~mask), df.filter(mask)
-    df1 = df1.group_by(cols).agg([
+    assert df["given_dose"].is_not_null().all()
+    df = df.group_by(cols).agg([
         pl.col("given_dose").sum(),
         pl.col("dose_ordered").sum()
     ]).select(col_names)
-    df = pl.concat([df1, df2], how="diagonal")
     if verbose:
         count = prev_size - df.shape[0]
         logger.info('Merged partial duplicates with different dosage fields for '
                     f'{count} ({(count)/(prev_size)*100:0.3f}%) rows')
-        prev_size = df.shape[0]
 
     # sort the data
     df = df.sort(by=['mrn', 'treatment_date'])
