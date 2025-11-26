@@ -51,7 +51,6 @@ CHEMO_EPIC_COL_MAP = { # 2025-11-03
     'DISCONTINUE_REASON': 'discontinue_reason',
     'CANCEL_DAY_REASON': 'cancel_day_reason'
 }
-
 CHEMO_PRE_EPIC_COL_MAP = { # 2025-07-02
     'PATIENT_RESEARCH_ID': 'patient_id',
     'treatment_plan': 'regimen',

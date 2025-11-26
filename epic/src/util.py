@@ -19,6 +19,17 @@ def load_lab_map(data_dir: str | None = None) -> dict[str, str]:
     return lab_map
 
 
+def load_table(data_path: str, mode: str = 'eager') -> pl.DataFrame | pl.LazyFrame:
+    # TODO: move to ml-common?
+    if data_path.endswith(('.parquet', '.parquet.gzip')):
+        df = pl.read_parquet(data_path) if mode == 'eager' else pl.scan_parquet(data_path)
+    if data_path.endswith('.csv'):
+        df = pl.read_csv(data_path) if mode == 'eager' else pl.scan_csv(data_path)
+    if data_path.endswith('.xlsx'):
+        df = pl.read_excel(data_path)
+    return df
+
+
 ###############################################################################
 # Helpers
 ###############################################################################

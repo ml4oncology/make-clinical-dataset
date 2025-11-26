@@ -51,8 +51,7 @@ def get_chemo_data(
     ).drop('patient_id')
 
     # map the normalized drug names
-    df = df.rename({"drug_name": "orig_drug_name"})
-    df = df.join(drug_map, on="orig_drug_name", how="left")
+    df = df.join(drug_map, on="drug_name", how="left")
 
     df = clean_chemo_data(df)
     df = filter_chemo_data(df, verbose=verbose)
@@ -61,13 +60,22 @@ def get_chemo_data(
 
 
 def clean_chemo_data(df: pl.DataFrame) -> pl.DataFrame:
+    body_meas_cols = ["height", "weight", "body_surface_area"]
+
     # clean up features
     df = df.with_columns([
         # clean up the Cancer Care Ontario regimen entries
         pl.col('cco_regimen').str.slice(1, None),
         # clean up intent of treatment
-        pl.col('intent').replace(TRT_INTENT).str.to_lowercase()
+        pl.col('intent').replace(TRT_INTENT).str.to_lowercase(),
+        # take the avg patient body measurements for each date
+        *[pl.col(col).mean().over(['mrn', 'treatment_date']) for col in body_meas_cols]
     ])
+
+    # forward fill patient body measurements
+    df = df.sort(by=['mrn', 'treatment_date']) # need to sort first
+    df = df.with_columns([pl.col(col).forward_fill().over("mrn") for col in body_meas_cols])
+
     return df
 
 
@@ -79,7 +87,7 @@ def filter_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     df = df.filter(mask)
 
     # drop rows without mapped drug name
-    mask = pl.col('drug_name').is_not_null()
+    mask = pl.col('drug_name_normalized').is_not_null()
     if verbose:
         get_excluded_numbers(df, mask=~mask, context=" without a mapped drug name")
     df = df.filter(mask)
@@ -90,9 +98,6 @@ def filter_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     if verbose:
         get_excluded_numbers(df, mask=mask, context=" of purely supportive regimens")
     df = df.filter(~mask)
-
-    # drop duplicates
-    df = df.unique()
 
     return df
 
@@ -111,7 +116,7 @@ def process_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     }
     route_is_missing = pl.col("route").is_null()
     for route, pattern in route_map.items():
-        contain_pattern = pl.col("orig_drug_name").str.contains(pattern)
+        contain_pattern = pl.col("drug_name").str.contains(pattern)
         df = df.with_columns(
             pl.when(route_is_missing & contain_pattern)
             .then(pl.lit(route))
@@ -121,22 +126,18 @@ def process_chemo_data(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
 
     # reorder select columns
     cols = [
-        'mrn', 'treatment_date',
-        'drug_name', 'orig_drug_name', 'drug_type', 'drug_dose', 'drug_unit',
-        'given_dose', 'given_dose_unit', 'dose_ordered', 
-        'cco_regimen', 'regimen', 'department', 'intent',
-        'body_surface_area', 'height', 'weight',
-        'first_treatment_date', 'cycle_number',
-        'route', 'drug_id', 'fdb_drug_code',
+        'mrn', 'treatment_date', 'first_treatment_date', 'cycle_number', 
+        'drug_name_normalized', 'given_dose', 'given_dose_unit', 
+        'body_surface_area', 'height', 'weight', 
+        'intent', 'cco_regimen', 'regimen', 'department',
+        'drug_name', 'drug_type', 'drug_dose', 'drug_unit',
+        'dose_ordered', 'route', 'drug_id', 'fdb_drug_code', 
+        'data_source'
     ]
     df = df.select(cols)
 
-    # process duplicates
-    df = df.unique() # remove exact duplicates post-processing
-    df = merge_partial_duplicates(df, verbose=verbose)
-
-    # sort the data
-    df = df.sort(by=['mrn', 'treatment_date']) #, 'drug_name'])
+    # process full and partial duplicates
+    df = process_duplicates(df, verbose=verbose)
 
     return df
 
@@ -200,13 +201,16 @@ def process_given_dosage(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def merge_partial_duplicates(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
+def process_duplicates(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     """Merge partial duplicate rows and aggregate their non-duplicate info"""
     if verbose:
         prev_size = df.shape[0]
         col_names = df.columns
     else:
         col_names = df.collect_schema().names()
+
+    # remove any full duplicates
+    df = df.unique()
 
     # collapse rows where everything matches except given_dose and dose_ordered
     # sum up the dosages
@@ -216,13 +220,16 @@ def merge_partial_duplicates(df: pl.DataFrame, verbose: bool = False) -> pl.Data
     df1 = df1.group_by(cols).agg([
         pl.col("given_dose").sum(),
         pl.col("dose_ordered").sum()
-    ])
+    ]).select(col_names)
     df = pl.concat([df1, df2], how="diagonal")
     if verbose:
         count = prev_size - df.shape[0]
         logger.info('Merged partial duplicates with different dosage fields for '
                     f'{count} ({(count)/(prev_size)*100:0.3f}%) rows')
         prev_size = df.shape[0]
+
+    # sort the data
+    df = df.sort(by=['mrn', 'treatment_date'])
 
     return df
 
