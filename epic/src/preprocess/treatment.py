@@ -194,8 +194,9 @@ def process_given_dosage(df: pl.DataFrame) -> pl.DataFrame:
         pl.when(pl.col("given_dose") == "nan")
           .then(pl.col("dose_ordered"))
           .otherwise(pl.col("given_dose"))
+          .alias("given_dose")
     )
-    
+
     # Convert to float
     df = df.with_columns(pl.col("given_dose").cast(pl.Float64))
     return df
