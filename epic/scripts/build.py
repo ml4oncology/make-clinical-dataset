@@ -84,7 +84,7 @@ def build_acute_care_use():
 
     epic_admit_dates = get_epic_admission_dates(EPIC_ED_ADMIT_PATH)
     admit_dates = get_admission_dates(discharge, epic_admit_dates)
-    admit_dates.write_parquet(f'{OUTPUT_DIR}/ED_admission_dates.parquet')
+    admit_dates.write_parquet(f'{OUTPUT_DIR}/acute_care_admission_dates.parquet')
 
 
 def build_demographic(id_to_mrn: dict[str, int]):
@@ -123,9 +123,9 @@ def main():
     id_to_mrn = mrn_map.set_index('PATIENT_RESEARCH_ID')['MRN'].to_dict()
 
     # get the drug mapping
-    drug_map = pd.read_excel(f'{INFO_DIR}/drug_names_normalized_reviewed.xlsx')
-    columns = {'type': 'drug_type', 'dose': 'drug_dose', 'unit': 'drug_unit', 'orig_text': 'orig_drug_name'}
-    drug_map = drug_map.rename(columns=columns).drop(columns=['failed_output'])
+    drug_map = pd.read_csv(f'{INFO_DIR}/drug_names_normalized_v2.csv')
+    columns = {'type': 'drug_type', 'dose': 'drug_dose', 'unit': 'drug_unit'}
+    drug_map = drug_map.rename(columns=columns).drop(columns=['count', 'failed_output'])
     drug_map = pl.from_pandas(drug_map)
 
     build_chemo_and_radiation_treatments(id_to_mrn, drug_map)

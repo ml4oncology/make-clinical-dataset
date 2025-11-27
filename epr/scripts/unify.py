@@ -22,8 +22,10 @@ from make_clinical_dataset.epr.label import (
     get_symptom_labels,
 )
 from make_clinical_dataset.epr.util import load_included_drugs
-from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH
+from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH, ROOT_DIR
 
+DATE = '2023-02-21'
+DATA_DIR = f"{ROOT_DIR}/data/final/data_{DATE}"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -49,8 +51,8 @@ def parse_args():
         default='treatment_centered_clinical_dataset', 
         help='Name of the output file, do not include file extension'
     )
-    parser.add_argument('--output-dir', type=str, default='./data/processed')
-    parser.add_argument('--data-dir', type=str, default='./data')
+    parser.add_argument('--output-dir', type=str, default=f"{DATA_DIR}/processed/")
+    parser.add_argument('--data-dir', type=str, default=DATA_DIR)
     parser.add_argument('--config-path', type=str, default=DEFAULT_CONFIG_PATH)
     args = parser.parse_args()
     return args
