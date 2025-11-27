@@ -333,13 +333,14 @@ def process_duplicates(df: pl.DataFrame, verbose: bool = False) -> pl.DataFrame:
     # NOTE: maintain_order=True is not efficient, better to sort again at the end
     df = df.unique()
 
-    # collapse rows where everything matches except given_dose and dose_ordered
-    # sum up the dosages
-    cols = [col for col in col_names if col not in ['given_dose', 'dose_ordered']]
+    # collapse rows where everything matches except given_dose, dose_ordered, and route
+    # sum up the dosages, concatenate the routes
+    cols = [col for col in col_names if col not in ['given_dose', 'dose_ordered', 'route']]
     assert df["given_dose"].is_not_null().all()
     df = df.group_by(cols).agg([
         pl.col("given_dose").sum(),
-        pl.col("dose_ordered").sum()
+        pl.col("dose_ordered").sum(),
+        pl.col("route").str.concat(", ")
     ]).select(col_names)
     if verbose:
         count = prev_size - df.shape[0]
