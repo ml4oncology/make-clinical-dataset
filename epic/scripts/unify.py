@@ -93,8 +93,8 @@ def main():
     main = get_symptom_labels(main, sym, main_date_col)
     main = get_death_labels(main, lookahead_window=[30, 365])
     
-    date_cols = ['mrn'] + [col for col in main.columns if col.endswith('date')]
-    str_cols = ['cancer_type', 'primary_site_desc', 'intent', 'postalcode'] # 'drug_name'
+    date_cols = ['mrn'] + [col for col, dtype in main.schema.items() if dtype == pl.Datetime]
+    str_cols = [col for col, dtype in main.schema.items() if dtype == pl.String]
     feat_cols = ['mrn', main_date_col] + str_cols + [col for col in main.columns if col not in date_cols+str_cols]
     main_dates = main.select(date_cols)
     main_dates.write_parquet(f'{output_dir}/{output_file_prefix}_dates.parquet')
