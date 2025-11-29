@@ -34,6 +34,53 @@ def get_radiation_data(
 
 
 ###############################################################################
+# EPIC + Pre-EPIC Chemotherapy
+###############################################################################
+def prepare_chemo(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
+    """Prepare EPIC+Pre-EPIC chemo data for combining/anchoring. 
+
+    Merge same day rows, aggregate conflicting features, create new features.
+    """
+    # make each drug into a new column (only works in eager mode) 
+    if isinstance(df, pl.LazyFrame): df = df.collect()
+    drugs = df.pivot(
+        on='drug_name_normalized', 
+        index=['mrn', 'treatment_date'], 
+        values=['given_dose'], # regimen_dose
+        aggregate_function='sum'
+    )
+
+    # drop drugs with less than 1000 appearances
+    drug_counts = df['drug_name_normalized'].value_counts().sort('count', descending=True)
+    drop_drugs = drug_counts.filter(pl.col('count') < 1000)['drug_name_normalized'].to_list()
+    drugs = drugs.drop(drop_drugs)
+
+    # merge same day rows and aggregate features
+    # if two treatments (the old regimen and new regimen) overlap on same day, use data associated with the most recent regimen
+    # NOTE: examples found thru df.group_by('mrn', 'treatment_date').agg(pl.col('first_treatment_date').n_unique() > 1)
+    df = df.group_by('mrn', 'treatment_date').agg(
+        pl.col('body_surface_area').mean(),
+        pl.col('height').mean(),
+        pl.col('weight').mean(),
+        pl.col('cycle_number').last(),
+        pl.col('department').last(),
+        pl.col('first_treatment_date').last(),
+        pl.col('intent').last(),
+        pl.col('regimen').last(),
+    )
+
+    # combine with drug features
+    df = df.join(drugs, on=['mrn', 'treatment_date'], how='inner').sort('mrn', 'treatment_date')
+
+    # add line of treatment
+    new_regimen = (pl.col('first_treatment_date') != pl.col('first_treatment_date').shift()).fill_null(True)
+    pall_intent = pl.col('intent') == 'palliative'
+    df = df.with_columns((new_regimen & pall_intent).cum_sum().over('mrn').alias('line_of_therapy'))
+
+    return df
+
+
+###############################################################################
 # EPIC Chemotherapy
 ###############################################################################
 def get_epic_chemo_data(
@@ -159,7 +206,7 @@ def get_chemo_data(
     drug_map: pl.DataFrame, 
     verbose: bool = False
 ) -> pl.DataFrame:
-    """Load, clean, filter, process chemotherapy data."""
+    """Load, clean, filter, process Pre-EPIC chemotherapy data."""
     df = pl.read_parquet(filepath)
 
     # map the patient ID to mrns

@@ -4,6 +4,7 @@ Module to anchor/combine features or targets to the main dates
 import datetime
 
 import polars as pl
+from make_clinical_dataset.epic.preprocess.treatment import prepare_chemo
 
 
 ###############################################################################
@@ -77,41 +78,13 @@ def combine_chemo_to_main_data(
     chemo: pl.DataFrame | pl.LazyFrame, 
     main_date_col: str, 
     time_window: tuple[int, int] = (-28,0),
-) -> pl.DataFrame | pl.LazyFrame:
+) -> pl.DataFrame:
     """Combine chemo treatment information to the main data"""
-    # Further preprocess the chemo
-    # chemo = chemo.filter(pl.col('drug_type') == "direct")
-    chemo = chemo.select(
-        'mrn', 'treatment_date', 'first_treatment_date', 'intent',  # 'drug_name'
-        'cycle_number', 'body_surface_area', 'height', 'weight'
-    )
-    # one-hot encode drugs - TODO: retrive the dosages instead of binary 0/1 for each drug
-    # drugs = chemo['drug_name'].unique()
-    # chemo = chemo.with_columns(pl.col('drug_name').alias('drug')) # keep the orignal string column
-    # chemo = chemo.to_dummies(columns='drug')
-    # merge same-day rows
-    chemo = chemo.group_by('mrn', 'treatment_date').agg(
-        pl.col('body_surface_area').mean(),
-        pl.col('height').mean(),
-        pl.col('weight').mean(),
-        # if two treatments (the old regimen and new regimen) overlap on same day, use data associated with the most recent regimen 
-        # NOTE: examples found thru df.group_by('mrn', 'treatment_date').agg(pl.col('first_treatment_date').n_unique() > 1)
-        pl.col('cycle_number').last(),
-        pl.col('first_treatment_date').last(),
-        pl.col('intent').last(),
-        # combine dosages together
-        # *(pl.col(f'drug_{col}').max() for col in drugs),
-        # concat the drugs together
-        # pl.col("drug_name").str.join("\n")
-    )
-    # NOTE: group_by's maintain_order=True is not efficient, better to sort it again right after
-    chemo = chemo.sort('mrn', 'treatment_date')
-    # add line of treatment
-    new_regimen = (pl.col('first_treatment_date') != pl.col('first_treatment_date').shift()).fill_null(True)
-    pall_intent = pl.col('intent') == 'palliative'
-    chemo = chemo.with_columns((new_regimen & pall_intent).cum_sum().over('mrn').alias('line_of_therapy'))
+    # Further process the chemo
+    chemo = prepare_chemo(chemo)
 
     # Merge them together
+    if isinstance(main, pl.LazyFrame): chemo = chemo.lazy()
     main = merge_closest_measurements(
         main, chemo, main_date_col=main_date_col, meas_date_col="treatment_date", merge_individually=False,
         time_window=time_window

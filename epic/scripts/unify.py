@@ -32,7 +32,7 @@ def parse_args():
     - A filepath to a parquet or csv with a datetime column: Aligns features based on the datetime values
     """
     parser.add_argument('--align-on', type=str, default='treatment-dates', help=msg)
-    parser.add_argument('--date-column', type=str, default='treatment_date', help='Name of the datetime column in the main data')
+    parser.add_argument('--date-column', type=str, default='assessment_date', help='Name of the datetime column in the main data')
     parser.add_argument('--output-file-prefix', type=str, default='treatment_centered', help='Name of the output file prefix')
     parser.add_argument('--output-dir', type=str, default=f"{DATA_DIR}/processed/")
     parser.add_argument('--data-dir', type=str, default=f"{DATA_DIR}/interim/")
@@ -61,14 +61,15 @@ def main():
     with open(config_path) as file:
         cfg = yaml.safe_load(file)
 
+    supp = chemo.filter(pl.col('drug_type') == "supportive")
+    chemo = chemo.filter(pl.col('drug_type') == "direct")
+
     if align_on == 'treatment-dates':
-        main_date_col = "assessment_date"
         main = (
             chemo
-            # .filter(pl.col('drug_type') == "direct")
-            .select('mrn', 'treatment_date').unique()
+            .select('mrn', 'treatment_date')
+            .unique().sort('mrn', 'treatment_date')
             .rename({'treatment_date': main_date_col})
-            .sort('mrn', main_date_col)
         )
     elif align_on.endswith('.parquet.gzip') or align_on.endswith('.parquet'):
         main = pl.read_parquet(align_on)
