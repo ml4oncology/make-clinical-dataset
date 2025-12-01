@@ -14,9 +14,10 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import pandas as pd
+import polars as pl
 from dotenv import load_dotenv
 from groq import Groq
-from make_clinical_dataset.shared.constants import ROOT_DIR
+from make_clinical_dataset.shared.constants import INFO_DIR, ROOT_DIR
 from ml_common.util import load_pickle, save_pickle, save_table
 from pydantic import BaseModel, Field
 from tqdm import tqdm
@@ -24,12 +25,12 @@ from tqdm import tqdm
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-DATE = '2025-07-02'
-DATA_DIR = f'{ROOT_DIR}/data/raw/data_pull_{DATE}'
+PRE_EPIC_CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_2025-07-02.parquet'
+EPIC_CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_2025-11-03.parquet'
 
 
 class DrugFormat(BaseModel):
-    drug_name: str = Field(..., description="Normalized drug name as per INN (International Nonproprietary Names)")
+    drug_name_normalized: str = Field(..., description="Normalized drug name as per INN (International Nonproprietary Names)")
     type: Literal["supportive", "direct"] = Field(..., description="Classification of the drug based on its purpose")
     dose: Optional[float] = Field(default=None, description="Prescribed dosage amount (e.g., 4.0 for '4MG')")
     unit: Optional[str] = Field(default=None, description="Prescribed dosage unit (e.g., 'mg' for '4MG')")
@@ -68,9 +69,11 @@ class GroqPrompter():
             generated_text = self.generate_response(user_input=text, model_name=model_name)
             try:
                 result = json.loads(generated_text)
-            except json.JSONDecodeError:
+                if isinstance(result, list):
+                    raise ValueError("Received a list instead of a dict")
+            except (json.JSONDecodeError, ValueError):
                 result = {'failed_output': generated_text}
-            result['orig_text'] = text
+            result['drug_name'] = text
             results.append(result)
 
             # save checkpoints at every 10th data point
@@ -79,12 +82,6 @@ class GroqPrompter():
                 save_pickle(results, save_dir, f'checkpoint_{filename}')
                 
         results = pd.DataFrame(results)
-
-        # save the results
-        save_table(results, save_path)
-
-        # delete the checkpoint
-        os.remove(f'{save_dir}/checkpoint_{filename}.pkl')
 
         return results
 
@@ -96,17 +93,6 @@ class GroqPrompter():
             model_name: The name of the model to use for inference. Must be supported by Groq.
             response_format: The Pydantic model that defines the expected JSON response format
                 If not provided, does not systematically enforce structured JSON output.
-
-        NOTE: response format is only currently supported by 
-            moonshotai/kimi-k2-instruct  - 1k requests per day
-            meta-llama/llama-4-maverick-17b-128e-instruct  - 1k requests per day
-            meta-llama/llama-4-scout-17b-16e-instruct  - 1k requests per day
-
-        API Rate limit quota for the other models:
-            llama3-70b-8192 - 14.4k requests per day
-            llama-3.3-70b-versatile - 1k requests per day
-
-        NOTE: llama3-70b-8192 does not support tool or function calling, including internet lookups or browsing
         """
         kwargs = {}
         if response_format is not None:
@@ -134,21 +120,40 @@ class GroqPrompter():
         ]
 
 
-def get_all_drugs(output_path: str):
-    paths = sorted(glob(f'{DATA_DIR}/chemo_pre_epic_csv/*.csv'))
-    ct_pre_epic = pd.concat([pd.read_csv(path, encoding='cp1252') for path in paths], ignore_index=True)
-    paths = sorted(glob(f'{DATA_DIR}/chemo_epic_csv/*.csv'))
-    ct_epic = pd.concat([pd.read_csv(path, encoding='cp1252') for path in paths], ignore_index=True)
-    ct_epic['medication_name'] = ct_epic['medication_name'] + (' - ' + ct_epic['generic_name']).fillna('')
-    drugs = pd.concat([ct_pre_epic['medication_name'], ct_epic['medication_name']]).value_counts()
-    drugs.to_csv(output_path)
+def get_all_drugs(save_path: str):
+    pre_epic_drugs = pl.read_parquet(PRE_EPIC_CHEMO_PATH, columns='drug_name')
+    epic_drugs = pl.read_parquet(EPIC_CHEMO_PATH, columns='drug_name').drop_nulls()
+    drugs = pl.concat([pre_epic_drugs, epic_drugs])['drug_name'].value_counts().sort('count', descending=True)
+
+    # include what's already been processed
+    drug_map = pl.read_excel(f'{INFO_DIR}/drug_names_normalized_reviewed_v1.xlsx')
+    drug_map = drug_map.rename({'orig_text': 'drug_name', 'drug_name': 'drug_name_normalized'})
+    drugs = drugs.join(drug_map, on='drug_name', how='left')
+
+    drugs.write_csv(save_path)
+
+
+def get_all_regimens(save_path: str):
+    pre_epic_regimens = pl.read_parquet(PRE_EPIC_CHEMO_PATH, columns=['regimen', 'cco_regimen'])
+    epic_regimens = pl.read_parquet(EPIC_CHEMO_PATH, columns='regimen').drop_nulls()
+    regimens = pl.concat([pre_epic_regimens, epic_regimens], how='diagonal')
+    regimens = (
+        regimens
+        .group_by('regimen')
+        .agg(pl.len(), pl.col('cco_regimen').unique().drop_nulls().str.concat(delimiter=', '))
+        .sort('len', descending=True)
+    )
+    regimens.write_csv(save_path)
 
 
 def normalize_drugs(data_dir: str):
-    drug_filepath = f'{data_dir}/interim/drugs/drug_names.csv'
-    if not os.path.exists(drug_filepath):
-        get_all_drugs(drug_filepath)
-    drugs = pd.read_csv(drug_filepath)
+    save_path = f'{data_dir}/interim/drugs/drug_names_normalized.csv'
+    if not os.path.exists(save_path):
+        get_all_drugs(save_path)
+    drugs = pd.read_csv(save_path)
+
+    mask = drugs['drug_name_normalized'].isna()
+    processed_drugs, unprocessed_drugs = drugs[~mask], drugs[mask]
 
     # INN = International Nonproprietary Names (INN)
     # globally recognized, unique names assigned to pharmaceutical substances
@@ -163,13 +168,13 @@ Your task is to extract and normalize drug information from unstructured text.
 Only return a structured JSON object matching the following schema:
 
 {
-  "drug_name": "<string>",
+  "drug_name_normalized": "<string>",
   "type": "supportive | direct",
   "dose": <float or null>,
   "unit": "<string or null>"
 }
 
-Ensure 'drug_name' is in INN (International Nonproprietary Names) format and lowercase. 
+Ensure 'drug_name_normalized' is in INN (International Nonproprietary Names) format and lowercase. 
 Note, some text may only contain the generic brand name of the drug. 
 You must convert to INN. Please double check using the internet. 
 
@@ -187,23 +192,52 @@ Input: 'PEMBROLIZUMAB IN 50 ML NS IV INTERMITTENT MIXTURE'
 Output: {"drug_name": "pembrolizumab", "type": "direct", "dose": 50, "unit": "ml"}
 """
     prompter = GroqPrompter(system_instr)
-    save_path = f'{data_dir}/interim/drugs/drug_names_normalized.xlsx'
     results = prompter.generate_responses(
-        dataset=drugs['medication_name'].tolist(), 
+        dataset=unprocessed_drugs['drug_name'].tolist(), 
         save_path=save_path, 
-        model_name="llama-3.3-70b-versatile"
+        model_name="openai/gpt-oss-120b", # "llama-3.3-70b-versatile"
     )
 
     # set all drugs used in trial and studies as study_drug
-    mask = results['orig_text'].str.contains('study|trial|placebo')
-    results.loc[mask, 'drug_name'] = 'study_drug'
+    mask = results['drug_name'].str.contains('study|trial|placebo') | results['drug_name'].str.startswith('INV ')
+    results.loc[mask, 'drug_name_normalized'] = 'study_drug'
 
     # resave the results
-    save_table(results, save_path)
+    results = pd.concat([processed_drugs, results])
+    save_table(results, save_path, index=False)
 
 
 def normalize_regimens():
-    pass
+    system_instr = """
+You are a professional natural language processing assistant specialized in medical text.
+Your task is to extract and normalize regimen information from unstructured text.
+
+Only return a structured JSON object matching the following schema:
+
+{
+  "regimen_normalized": "<string>",
+  "schedule": "<string or null>",
+  "radiation_therapy": <bool>,
+  "additional_notes": "<string or null>"
+}
+
+'regimen_normalized' must follow the Cancer Care Ontario regimen taxonomy.
+Please double check using the internet. 
+
+If the schedule is missing or unclear, set them to null. 
+
+Only include information present in the text. Do not guess or infer missing values.
+
+Here are some examples:
+Input: 'GI-GEM D1,8,15'
+Output: {"regimen_normalized": "GEMC", "schedule": "D1,8,15", "radiation_therapy": false, "additional_notes": null}
+
+Input: 'LU-ETOPCISP 3 DAY'
+Output: {"regimen_normalized": "CISPETOP(3D)", "schedule": "3 DAY", "radiation_therapy": false, "additional_notes": null}
+
+Input: 'LU-ETOPCISP-RT'
+Output: {"regimen_normalized": "CISPETOP(RT)", "schedule": null, "radiation_therapy": yes, "additional_notes": null}
+"""
 
     
 if __name__ == '__main__':

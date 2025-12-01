@@ -1,12 +1,16 @@
-"""Separate the Observation data into ED, ESAS, radiology, and lab datasets"""
+"""Separate the Observation data into ED, ESAS, radiology, and lab datasets
+
+NOTE: The ED (Emergency Department) dataset contained in Observation data is mostly Triage Assessment data.
+Patients may or may not have been admitted after triage assessment. 
+So for ED, please use the data from clinical notes instead.
+"""
 import os
 
 import pandas as pd
+from make_clinical_dataset.shared.constants import INFO_DIR, ROOT_DIR
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from tqdm import tqdm
-
-from make_clinical_dataset.shared.constants import INFO_DIR, ROOT_DIR
 
 # Configurations
 today = '2025-03-29'

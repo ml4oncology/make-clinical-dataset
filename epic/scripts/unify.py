@@ -16,9 +16,9 @@ from make_clinical_dataset.epic.combine import (
 from make_clinical_dataset.epic.label import (
     get_acu_labels,
     get_CTCAE_labels,
+    get_death_labels,
     get_symptom_labels,
 )
-from make_clinical_dataset.epic.preprocess.demographic import get_demographic_data
 from make_clinical_dataset.shared.constants import DEFAULT_CONFIG_PATH, ROOT_DIR
 
 DATE = '2025-03-29'
@@ -32,7 +32,7 @@ def parse_args():
     - A filepath to a parquet or csv with a datetime column: Aligns features based on the datetime values
     """
     parser.add_argument('--align-on', type=str, default='treatment-dates', help=msg)
-    parser.add_argument('--date-column', type=str, default='treatment_date', help='Name of the datetime column in the main data')
+    parser.add_argument('--date-column', type=str, default='assessment_date', help='Name of the datetime column in the main data')
     parser.add_argument('--output-file-prefix', type=str, default='treatment_centered', help='Name of the output file prefix')
     parser.add_argument('--output-dir', type=str, default=f"{DATA_DIR}/processed/")
     parser.add_argument('--data-dir', type=str, default=f"{DATA_DIR}/interim/")
@@ -52,23 +52,24 @@ def main():
     if not os.path.exists(output_dir): 
         os.makedirs(output_dir)
     chemo = pl.read_parquet(f'{data_dir}/chemo.parquet')
-    rad = pl.read_parquet(f'{DATA_DIR}/interim/radiation.parquet')
+    rad = pl.read_parquet(f'{data_dir}/radiation.parquet')
     lab = pl.read_parquet(f'{data_dir}/lab.parquet')
-    lab = lab.with_columns(pl.col('mrn').cast(pl.Int64))
     sym = pl.read_parquet(f'{data_dir}/symptom.parquet')
-    acu = pl.read_parquet(f'{data_dir}/acute_care_use.parquet')
-    demog = pl.from_pandas(get_demographic_data())
+    acu = pl.read_parquet(f'{data_dir}/acute_care_admission_dates.parquet')
+    demog = pl.read_parquet(f'{data_dir}/demographic.parquet')
+    last_seen = pl.read_parquet(f'{data_dir}/last_seen_dates.parquet')
     with open(config_path) as file:
         cfg = yaml.safe_load(file)
 
+    supp = chemo.filter(pl.col('drug_type') == "supportive")
+    chemo = chemo.filter(pl.col('drug_type') == "direct")
+
     if align_on == 'treatment-dates':
-        main_date_col = "assessment_date"
         main = (
             chemo
-            .filter(pl.col('drug_type') == "direct")
-            .select('mrn', 'treatment_date').unique()
+            .select('mrn', 'treatment_date')
+            .unique().sort('mrn', 'treatment_date')
             .rename({'treatment_date': main_date_col})
-            .sort('mrn', main_date_col)
         )
     elif align_on.endswith('.parquet.gzip') or align_on.endswith('.parquet'):
         main = pl.read_parquet(align_on)
@@ -78,6 +79,7 @@ def main():
         raise ValueError(f'Sorry, aligning features on {align_on} is not supported yet')
     
     # Extract features
+    main = main.join(last_seen.select('mrn', 'last_seen_date'), on="mrn", how="left")
     main = combine_demographic_to_main_data(main, demog, main_date_col)
     main = combine_chemo_to_main_data(main, chemo, main_date_col, time_window=(-28,0))
     main = combine_radiation_to_main_data(main, rad, main_date_col, time_window=(-28,0))
@@ -89,9 +91,10 @@ def main():
     main = get_acu_labels(main, acu, main_date_col, lookahead_window=[30, 60, 90])
     main = get_CTCAE_labels(main.lazy(), lab.lazy(), main_date_col, lookahead_window=30).collect()
     main = get_symptom_labels(main, sym, main_date_col)
+    main = get_death_labels(main, lookahead_window=[30, 365])
     
-    date_cols = ['mrn'] + [col for col in main.columns if col.endswith('date')]
-    str_cols = ['cancer_type', 'primary_site_desc', 'intent', 'drug_name', 'postal_code']
+    date_cols = ['mrn'] + [col for col, dtype in main.schema.items() if dtype == pl.Datetime]
+    str_cols = [col for col, dtype in main.schema.items() if dtype == pl.String]
     feat_cols = ['mrn', main_date_col] + str_cols + [col for col in main.columns if col not in date_cols+str_cols]
     main_dates = main.select(date_cols)
     main_dates.write_parquet(f'{output_dir}/{output_file_prefix}_dates.parquet')
