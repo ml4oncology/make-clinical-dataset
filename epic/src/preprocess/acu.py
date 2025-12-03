@@ -180,13 +180,29 @@ def extract_admission_and_discharge_dates(df: pl.DataFrame | pl.LazyFrame) -> pl
 def get_triage_data(data_dir: str) -> pl.DataFrame:
     """Load, clean, filter, process triage assessment data."""
     df = pl.scan_parquet(f'{data_dir}/*.parquet')
+    df = filter_triage_data(df)
+    df = process_triage_data(df)
+    return df
+
+
+def filter_triage_data(df: pl.LazyFrame | pl.DataFrame) -> pl.LazyFrame | pl.DataFrame:
     df = df.unique()
+    return df
+
+
+def process_triage_data(df: pl.LazyFrame | pl.DataFrame) -> pl.DataFrame:
+    # combine the obervation values (num, str, unit)
+    # combine the two datetime columns
     obs_val = pl.col("obs_val_num").cast(str) + pl.lit(" ") + pl.col("obs_unit")
     df = df.with_columns(
         pl.when(pl.col("obs_val_str").is_not_null()).then(pl.col("obs_val_str")).otherwise(obs_val).alias("obs_val"),
         pl.coalesce([pl.col("effective_datetime"), pl.col("occurrence_datetime_from_order")]).alias("datetime"),
     ).drop(['obs_val_str', 'obs_val_num', 'obs_unit', 'effective_datetime', 'occurrence_datetime_from_order'])
-    df = df.collect()
+
+    # make each obs_name its own column
+    if isinstance(df, pl.LazyFrame):
+        df = df.collect() # need to collect before pivoting
     df = df.pivot(on='obs_name', values='obs_val', aggregate_function=pl.element().str.join("/n/n"))
+
     df = df.sort('patient', 'datetime')
     return df
