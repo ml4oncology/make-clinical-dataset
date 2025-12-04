@@ -1,11 +1,13 @@
 """
-Module to preprocess emergency department visits and hospitalizations, aka acute care use (ACU)
+Module to preprocess emergency department visits and hospitalizations, aka acute care use (ACU).
 
-NOTE: We currently use discharge summaries (from clinical notes data) to indicate acute care use, 
-which may include palliative care and surgical appointments as well
+We use 
+1. (Pre-EPIC) ER triage assessment, (EPIC) ED provider notes, and (EPIC) ED arrival dates 
+    to indicate emergency department visits
+2. (Pre-EPIC + EPIC) Discharge summaries to indicate hospitalizations. 
 
-NOTE: Why are we not using ED data from separate.py? Because it is mostly triage assessment data,
-and we do not know if patients were admitted after triage assessment.
+NOTE: discharge summaries and ED provider notes come from the same clinical notes dataset
+TODO: separate planned (e.g. elective surgeries) and unplanned hospitalizations based on discharge summary.
 """
 import pandas as pd
 import polars as pl
@@ -13,61 +15,81 @@ from ml_common.util import load_table
 
 
 ###############################################################################
-# Admission Dates
+# Acute Care Use
 ###############################################################################
-def get_epic_admission_dates(filepath: str) -> pl.DataFrame:
-    """Load, clean, filter, process EPIC ED admission dates."""
+def get_acute_care_use(
+    triage: pl.DataFrame,
+    discharge: pl.DataFrame, 
+    epic_arrival_dates: pd.DataFrame
+) -> pl.DataFrame:
+    """Combine acute care use from multiple sources.
+
+    1. EPIC ED arrival dates 
+    2. Discharge Summaries
+    3. Triage Assessments
+    
+    Args:
+        triage: The output of get_triage_data().
+        discharge: The output of get_discharge_data().
+        epic_arrival_dates: The output of get_epic_arrival_dates().
+    """
+    triage = (
+        triage.
+        select('mrn', 'ED_arrival_date')
+        .with_columns([
+            pl.col('ED_arrival_date').cast(pl.Date),
+            pl.lit("Triage Assessment").alias('data_source'),
+        ])
+    )
+    discharge = (
+        discharge
+        .select('mrn', 'hosp_admission_date')
+        .filter(pl.col('hosp_admission_date').is_not_null())
+        .with_columns(pl.lit("Discharge Summary").alias('data_source'))
+    )
+    epic_arrival_dates = (
+        pl.from_pandas(epic_arrival_dates)
+        .with_columns([
+            pl.col('ED_arrival_date').cast(pl.Date),
+            pl.lit("EPIC ED Arrival Dates").alias('data_source'),
+        ])
+    )
+    arrival_dates = (
+        pl.concat([epic_arrival_dates, discharge, triage])
+        .group_by(["mrn", "ED_arrival_date"])
+        .agg(pl.col("data_source").unique().sort())
+        .sort('mrn', 'ED_arrival_date')
+    )
+    return arrival_dates
+
+
+###############################################################################
+# Arrival Dates
+###############################################################################
+def get_epic_arrival_dates(filepath: str) -> pl.DataFrame:
+    """Load, clean, filter, process EPIC ED arrival dates."""
     df = load_table(filepath)
 
     # rename the columns
-    df = df.rename(columns={'PATIENT_ID': 'mrn', 'EMERGENCY_ADMISSION_DATE': 'admission_date'})
+    df = df.rename(columns={'PATIENT_ID': 'mrn', 'EMERGENCY_ADMISSION_DATE': 'ED_arrival_date'})
 
     # fix dtypes
-    df["admission_date"] = pd.to_datetime(df["admission_date"])
+    df["ED_arrival_date"] = pd.to_datetime(df["ED_arrival_date"])
 
     # keep only useful columns
-    df = df[['mrn', 'admission_date']]
+    df = df[['mrn', 'ED_arrival_date']]
 
     # remove rows with missing dates
-    df = df[df["admission_date"].notna()]
+    df = df[df["ED_arrival_date"].notna()]
 
-    # remove duplicates (multiple entries for the same admission)
-    # TODO: handle patients with multiple admissions on the same day (occurs rarely)
+    # remove duplicates (multiple entries for the same arrival)
+    # TODO: handle patients with multiple arrivals on the same day (occurs rarely)
     df = df.drop_duplicates()
 
     # sort by patient and date
-    df = df.sort_values(by=['mrn', 'admission_date'])
+    df = df.sort_values(by=['mrn', 'ED_arrival_date'])
 
     return df
-
-
-def get_admission_dates(discharge: pl.DataFrame, epic_admission_dates: pd.DataFrame) -> pl.DataFrame:
-    """Combine ED admission dates from both sources (EPIC ED admission dates and from discharge summaries).
-    
-    Args:
-        discharge: The output of get_discharge_data().
-        epic_admission_dates: The output of get_epic_admission_dates().
-    """
-    discharge_summary_admission_dates = (
-        discharge
-        .select('mrn', 'admission_date')
-        .filter(pl.col('admission_date').is_not_null())
-        .with_columns(pl.lit("Discharge Summary").alias('data_source'))
-    )
-    epic_admission_dates = (
-        pl.from_pandas(epic_admission_dates)
-        .with_columns([
-            pl.col('admission_date').cast(pl.Date),
-            pl.lit("EPIC ED Admission Dates").alias('data_source'),
-        ])
-    )
-    admission_dates = (
-        pl.concat([epic_admission_dates, discharge_summary_admission_dates])
-        .group_by(["mrn", "admission_date"])
-        .agg(pl.col("data_source").unique().sort())
-        .sort('mrn', 'admission_date')
-    )
-    return admission_dates
 
 
 ###############################################################################
@@ -77,7 +99,6 @@ def get_discharge_data(filepath: str) -> pl.DataFrame | pl.LazyFrame:
     """Load, clean, filter, process discharge data."""
     # Please ask Wayne Uy about the merged_processed_cleaned_clinical_notes dataset
     df = pl.read_parquet(filepath)
-    # df = pl.scan_parquet(filepath)
     df = clean_discharge_data(df)
     df = filter_discharge_data(df)
     df = process_discharge_data(df)
@@ -101,12 +122,12 @@ def filter_discharge_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.
 
 def process_discharge_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
     df = extract_admission_and_discharge_dates(df)
-    df = df.sort('mrn', 'admission_date')
+    df = df.sort('mrn', 'hosp_admission_date')
     return df
 
 
 def extract_admission_and_discharge_dates(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
-    """Extract the admission and discharge dates from the discharge summary notes
+    """Extract the hospital admission and discharge dates from the discharge summary notes
     """
     # extract "date-like" token after admission/discharge
     date_patterns = [
@@ -168,41 +189,106 @@ def extract_admission_and_discharge_dates(df: pl.DataFrame | pl.LazyFrame) -> pl
         return pl.coalesce(parsed)
     
     df = df.with_columns([
-        parse_date_expr("admission_date_raw").alias("admission_date"),
-        parse_date_expr("discharge_date_raw").alias("discharge_date"),
+        parse_date_expr("admission_date_raw").alias("hosp_admission_date"),
+        parse_date_expr("discharge_date_raw").alias("hosp_discharge_date"),
     ])
 
     return df
 
+
 ###############################################################################
 # Triage Assessment
 ###############################################################################
-def get_triage_data(data_dir: str) -> pl.DataFrame:
-    """Load, clean, filter, process triage assessment data."""
+def get_triage_data(id_to_mrn: dict[str, int], data_dir: str) -> pl.DataFrame:
+    """Load, clean, filter, process ER triage assessment data."""
     df = pl.scan_parquet(f'{data_dir}/*.parquet')
+
+    # map the patient ID to mrns
+    df = df.with_columns(
+        pl.col("patient").replace_strict(id_to_mrn).alias("mrn")
+    ).drop('patient')
+
     df = filter_triage_data(df)
     df = process_triage_data(df)
     return df
 
 
 def filter_triage_data(df: pl.LazyFrame | pl.DataFrame) -> pl.LazyFrame | pl.DataFrame:
+    procs = ["ER Triage Assessment"]
+    df = df.filter(pl.col('proc_name').is_in(procs))
+    df = df.filter(pl.col('obs_status').is_null() | (pl.col('obs_status') != 'unknown'))
     df = df.unique()
     return df
 
 
 def process_triage_data(df: pl.LazyFrame | pl.DataFrame) -> pl.DataFrame:
-    # combine the obervation values (num, str, unit)
+    # combine the obervation values (numeric + unit, or use string value if available)
     # combine the two datetime columns
     obs_val = pl.col("obs_val_num").cast(str) + pl.lit(" ") + pl.col("obs_unit")
+    drop_cols = [
+        'obs_val_str', 'obs_val_num', 'obs_unit', 
+        'effective_datetime', 'occurrence_datetime_from_order'
+    ]
     df = df.with_columns(
-        pl.when(pl.col("obs_val_str").is_not_null()).then(pl.col("obs_val_str")).otherwise(obs_val).alias("obs_val"),
-        pl.coalesce([pl.col("effective_datetime"), pl.col("occurrence_datetime_from_order")]).alias("datetime"),
-    ).drop(['obs_val_str', 'obs_val_num', 'obs_unit', 'effective_datetime', 'occurrence_datetime_from_order'])
+        pl.when(pl.col("obs_val_str").is_not_null())
+          .then(pl.col("obs_val_str"))
+          .otherwise(obs_val)
+          .alias("obs_val"),
+        pl.coalesce([
+            pl.col("effective_datetime"), 
+            pl.col("occurrence_datetime_from_order")
+        ]).alias("ED_arrival_date"),
+    ).drop(drop_cols)
 
-    # make each obs_name its own column
+    # transform each obs_name into its own column
     if isinstance(df, pl.LazyFrame):
         df = df.collect() # need to collect before pivoting
-    df = df.pivot(on='obs_name', values='obs_val', aggregate_function=pl.element().str.join("/n/n"))
+    df = df.pivot(
+        on='obs_name', 
+        values='obs_val', 
+        aggregate_function=pl.element().str.join("\n\n")
+    )
 
-    df = df.sort('patient', 'datetime')
+    # convert CTAS description into a numeric score
+    df = convert_CTAS_score(df)
+
+    # drop columns that are >99% missing or have only one unique value
+    drop_cols = [
+        col for col in df.columns 
+        if (df[col].is_null().mean() > 0.99) or 
+           (df[col].drop_nulls().n_unique() == 1)
+    ]
+    df = df.drop(drop_cols)
+
+    # reorder the columns
+    cols = [
+        'mrn', 'ED_arrival_date', 'CEDIS Complaint', 'CTAS Score', 
+        'Chief Complaint', 'History/Assessment', 'Smoker?'
+    ]
+    df = df.select(cols + [pl.exclude(cols)])
+
+    # sort by patient and date
+    df = df.sort('mrn', 'ED_arrival_date')
+
+    return df
+
+
+def convert_CTAS_score(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
+    """Convert the CTAS (Canadian Triage and Acuity Scale) score from descriptive to quantitative.
+
+    CTAS score should be between 1 - 5
+    1: severely ill, requires resuscitation 
+    2: requires emergent care and rapid medical intervention 
+    3: requires urgent care 
+    4: requires less-urgent care 
+    5: requires non-urgent care
+    """
+    score_map = {
+        'resuscitation': 1, 
+        'emergent': 2, 
+        'urgent': 3, 
+        'less urgent': 4, 
+        'non urgent': 5
+    }
+    df = df.with_columns(pl.col('CTAS Score').replace_strict(score_map))
     return df

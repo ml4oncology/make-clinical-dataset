@@ -3,9 +3,9 @@
 import pandas as pd
 import polars as pl
 from make_clinical_dataset.epic.preprocess.acu import (
-    get_admission_dates,
+    get_acute_care_use,
     get_discharge_data,
-    get_epic_admission_dates,
+    get_epic_arrival_dates,
     get_triage_data,
 )
 from make_clinical_dataset.epic.preprocess.demographic import (
@@ -44,7 +44,7 @@ DEMOG_PATH = f'{ROOT_DIR}/data/processed/cancer_registry/demographic_{DATE}.parq
 DATE = '2025-11-03'
 EPIC_CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_{DATE}.parquet'
 EPIC_ESAS_PATH = f'{ROOT_DIR}/data/processed/ESAS/ESAS_{DATE}.parquet'
-EPIC_ED_ADMIT_PATH = f'{ROOT_DIR}/data/processed/ED/ED_{DATE}.parquet' 
+EPIC_ED_ARRIVAL_PATH = f'{ROOT_DIR}/data/processed/ED/ED_{DATE}.parquet' 
 
 
 def build_chemo_and_radiation_treatments(id_to_mrn: dict[str, int], drug_map: pl.DataFrame):
@@ -76,16 +76,17 @@ def build_radiology_reports(id_to_mrn: dict[str, int]):
     reports.write_parquet(f'{OUTPUT_DIR}/radiology_reports.parquet')
     
 
-def build_acute_care_use():
+def build_acute_care_use(id_to_mrn: dict[str, int]):
     discharge = get_discharge_data(NOTES_PATH)
     discharge.sink_parquet(f'{OUTPUT_DIR}/discharge_summary.parquet')
 
-    triage = get_triage_data(ER_TRIAGE_DIR)
+    triage = get_triage_data(id_to_mrn, data_dir=ER_TRIAGE_DIR)
     triage.write_parquet(f'{OUTPUT_DIR}/triage.parquet')
 
-    epic_admit_dates = get_epic_admission_dates(EPIC_ED_ADMIT_PATH)
-    admit_dates = get_admission_dates(discharge, epic_admit_dates)
-    admit_dates.write_parquet(f'{OUTPUT_DIR}/acute_care_admission_dates.parquet')
+    epic_arrival_dates = get_epic_arrival_dates(EPIC_ED_ARRIVAL_PATH)
+
+    acute_care_use = get_acute_care_use(triage, discharge, epic_arrival_dates)
+    acute_care_use.write_parquet(f'{OUTPUT_DIR}/acute_care_use.parquet')
 
 
 def build_demographic(id_to_mrn: dict[str, int]):
