@@ -3,8 +3,8 @@
 import pandas as pd
 import polars as pl
 from make_clinical_dataset.epic.preprocess.acu import (
+    get_acu_notes_data,
     get_acute_care_use,
-    get_discharge_data,
     get_epic_arrival_dates,
     get_triage_data,
 )
@@ -77,15 +77,16 @@ def build_radiology_reports(id_to_mrn: dict[str, int]):
     
 
 def build_acute_care_use(id_to_mrn: dict[str, int]):
-    discharge = get_discharge_data(NOTES_PATH)
-    discharge.sink_parquet(f'{OUTPUT_DIR}/discharge_summary.parquet')
+    notes = get_acu_notes_data(NOTES_PATH)
+    notes['discharge'].write_parquet(f'{OUTPUT_DIR}/discharge_summary.parquet')
+    notes['provider_notes'].write_parquet(f'{OUTPUT_DIR}/provider_notes.parquet')
 
     triage = get_triage_data(id_to_mrn, data_dir=ER_TRIAGE_DIR)
     triage.write_parquet(f'{OUTPUT_DIR}/triage.parquet')
 
     epic_arrival_dates = get_epic_arrival_dates(EPIC_ED_ARRIVAL_PATH)
 
-    acute_care_use = get_acute_care_use(triage, discharge, epic_arrival_dates)
+    acute_care_use = get_acute_care_use(triage, notes['discharge'], notes['provider_notes'], epic_arrival_dates)
     acute_care_use.write_parquet(f'{OUTPUT_DIR}/acute_care_use.parquet')
 
 
