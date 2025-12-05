@@ -32,7 +32,7 @@ def get_acute_care_use(
     """
     discharge = (
         discharge
-        .select('mrn', 'hosp_admission_date', 'hosp_discharge_date', 'clinical_notes')
+        .select('mrn', 'hosp_admission_date', 'hosp_discharge_date', 'clinical_notes', 'length_of_stay')
         .with_columns(pl.lit("Discharge Summary").alias('data_source'))
     )
     triage = (
@@ -149,12 +149,14 @@ def filter_acu_notes_data(df: pl.DataFrame | pl.LazyFrame, procs: list[str],) ->
 
 def process_discharge_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame | pl.LazyFrame:
     df = extract_admission_and_discharge_dates(df)
-    # fill missing discharge dates with the processed date
     df = df.with_columns(
+        # fill missing discharge dates with the processed date
         pl.coalesce([
             pl.col("hosp_discharge_date"), 
             pl.col('processed_date').cast(pl.Date)
-        ]).alias("hosp_discharge_date")
+        ]).alias("hosp_discharge_date"),
+        # get length of stay
+        (pl.col('hosp_discharge_date') - pl.col('hosp_admission_date')).dt.total_days().alias('length_of_stay')
     )
     df = df.sort('mrn', 'hosp_admission_date')
     return df
