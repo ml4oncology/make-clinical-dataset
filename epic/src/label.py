@@ -44,6 +44,36 @@ def get_death_labels(
 # Acute Care Use
 ###############################################################################
 def get_acu_labels(
+    main: pl.DataFrame | pl.LazyFrame,
+    acu: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str,
+    lookahead_window: int | list[int] = 30
+):
+    """Determine if acute care use (ACU) occured within a lookahead window.
+    Acute care use encompasses hospitalizations and emergency department visits.
+    """
+    mask = pl.col('data_source') == "Discharge Summary"
+    hosp, emerg = acu.filter(mask), acu.filter(~mask)
+
+    main = get_event_labels(
+        main, emerg, main_date_col, "ED_arrival_date", event_name="ED", 
+        extra_cols=["CTAS_score", "note"], lookahead_window=lookahead_window
+    )
+    main = get_event_labels(
+        main, hosp, main_date_col, "hosp_admission_date", event_name="H", 
+        extra_cols=["length_of_stay", "note"], lookahead_window=lookahead_window
+    )
+
+    # indicate if the ED visit led to hospitalization
+    # (when admission date occurs less than 2 days after ED visit)
+    lower, upper = pl.col('target_ED_date'), pl.col('target_ED_date') + pl.duration(days=2)
+    mask = (pl.col('target_H_date') >= lower) & (pl.col('target_H_date') < upper)
+    main = main.with_columns(mask.alias('target_ED2H'))
+
+    return main
+
+
+def get_event_labels(
     main: pl.DataFrame | pl.LazyFrame, 
     event: pl.DataFrame | pl.LazyFrame, 
     main_date_col: str, 

@@ -7,9 +7,9 @@ import os
 import polars as pl
 import yaml
 from make_clinical_dataset.epic.combine import (
+    combine_acu_to_main_data,
     combine_chemo_to_main_data,
     combine_demographic_to_main_data,
-    combine_event_to_main_data,
     combine_radiation_to_main_data,
     merge_closest_measurements,
 )
@@ -85,18 +85,12 @@ def main():
     main = combine_demographic_to_main_data(main, demog, main_date_col)
     main = combine_chemo_to_main_data(main, chemo, main_date_col, time_window=(-28,0))
     main = combine_radiation_to_main_data(main, rad, main_date_col, time_window=(-28,0))
+    main = combine_acu_to_main_data(main, acu, main_date_col, lookback_window=5)
     main = merge_closest_measurements(main, lab, main_date_col, "obs_date", include_meas_date=True, time_window=(-5,0))
     main = merge_closest_measurements(main, sym, main_date_col, "obs_date", include_meas_date=True, time_window=(-30,0))
-    kwargs = dict(event_name="ED_visit", extra_cols=["CTAS_score", "note"], lookback_window=5)
-    main = combine_event_to_main_data(main, emerg, main_date_col, "ED_arrival_date", **kwargs)
-    kwargs = dict(event_name="hospitalization", extra_cols=["length_of_stay", "note"], lookback_window=5)
-    main = combine_event_to_main_data(main, hosp, main_date_col, "hosp_admission_date", **kwargs)
 
     # Extract targets
-    kwargs = dict(event_name="ED", extra_cols=["CTAS_score", "note"], lookahead_window=[30, 60, 90])
-    main = get_acu_labels(main, emerg, main_date_col, "ED_arrival_date", **kwargs)
-    kwargs = dict(event_name="H", extra_cols=["length_of_stay", "note"], lookahead_window=[30, 60, 90])
-    main = get_acu_labels(main, hosp, main_date_col, "hosp_admission_date", **kwargs)
+    main = get_acu_labels(main, acu, main_date_col, lookahead_window=[30, 60, 90])
     main = get_CTCAE_labels(main.lazy(), lab.lazy(), main_date_col, lookahead_window=30).collect()
     main = get_symptom_labels(main, sym, main_date_col)
     main = get_death_labels(main, lookahead_window=[30, 365])

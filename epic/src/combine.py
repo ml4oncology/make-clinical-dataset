@@ -147,6 +147,29 @@ def combine_demographic_to_main_data(
     return main
 
 
+def combine_acu_to_main_data(
+    main: pl.DataFrame | pl.LazyFrame,
+    acu: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str,
+    lookback_window: int = 5, # years
+):
+    mask = pl.col('data_source') == "Discharge Summary"
+    hosp, emerg = acu.filter(mask), acu.filter(~mask)
+
+    main = combine_event_to_main_data(
+        main, hosp, main_date_col, "hosp_admission_date", 
+        event_name="hospitalization", extra_cols=["length_of_stay", "note"], 
+        lookback_window=lookback_window
+    )
+    
+    main = combine_event_to_main_data(
+        main, emerg, main_date_col, "ED_arrival_date", event_name="ED_visit", 
+        extra_cols=["CTAS_score", "note"], lookback_window=lookback_window
+    )
+
+    return main
+
+
 def combine_event_to_main_data(
     main: pl.DataFrame | pl.LazyFrame, 
     event: pl.DataFrame | pl.LazyFrame, 
