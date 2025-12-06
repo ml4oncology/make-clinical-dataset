@@ -79,7 +79,6 @@ def combine_chemo_to_main_data(
     main_date_col: str, 
     time_window: tuple[int, int] = (-28,0),
 ) -> pl.DataFrame:
-    """Combine chemo treatment information to the main data"""
     # Further process the chemo
     chemo = prepare_chemo(chemo)
 
@@ -139,7 +138,7 @@ def combine_demographic_to_main_data(
     main = main.filter(pl.col("birth_date").is_not_null())
 
     # create age column
-    age = (pl.col("assessment_date") - pl.col("birth_date")).dt.total_days() / 365.25
+    age = (pl.col(main_date_col) - pl.col("birth_date")).dt.total_days() / 365.25
     main = main.with_columns(age.alias('age'))
 
     # exclude patients under 18 years of age
@@ -151,10 +150,19 @@ def combine_demographic_to_main_data(
 def combine_event_to_main_data(
     main: pl.DataFrame | pl.LazyFrame, 
     event: pl.DataFrame | pl.LazyFrame, 
-    main_date_col: str, 
-    event_name: str,
+    main_date_col: str,
+    event_date_col: str, 
+    event_name: str = 'event',
+    extra_cols: list[str] = None,
     lookback_window: int = 5, # years
 ) -> pl.DataFrame | pl.LazyFrame:
+    """
+    Args:
+        extra_cols: Additional columns to keep as features
+    """
+    if extra_cols is None:
+        extra_cols = []
+
     # Additional features to be added
     # 1. date of most recent event prior to main date
     prev_date_col = f'prev_{event_name}_date'
@@ -162,7 +170,6 @@ def combine_event_to_main_data(
     days_since_col = f'days_since_prev_{event_name}'
     # 3. number of events within the lookback window 
     num_events_col = f'num_prior_{event_name}s_within_{lookback_window}_years'
-    # TODO: add length of stay
 
     # Extract the event features
     # main = main.lazy()
@@ -171,13 +178,14 @@ def combine_event_to_main_data(
         main
         .join(event, on="mrn", how="left") # WARNING: beware of exploding joins, use lazy evaluation when necessary
         .filter(
-            (pl.col("admission_date") < pl.col(main_date_col)) &
-            (pl.col("admission_date") >= (pl.col(main_date_col) - pl.duration(days=365 * lookback_window)))
+            (pl.col(event_date_col) < pl.col(main_date_col)) &
+            (pl.col(event_date_col) >= (pl.col(main_date_col) - pl.duration(days=365 * lookback_window)))
         )
         .group_by(["mrn", main_date_col])
         .agg(
             pl.len().alias(num_events_col),
-            pl.col("admission_date").max().alias(prev_date_col)
+            pl.col(event_date_col).max().alias(prev_date_col),
+            *[pl.col(col).first().alias(f'prev_{event_name}_{col}') for col in extra_cols]
         )
         .with_columns(
             (pl.col(main_date_col) - pl.col(prev_date_col)).dt.total_days().alias(days_since_col)
@@ -188,10 +196,7 @@ def combine_event_to_main_data(
     main = (   
         main
         .join(event_feats, on=["mrn", main_date_col], how="left")
-        .with_columns(
-            pl.col(num_events_col).fill_null(0),
-            pl.col(days_since_col).fill_null(365 * lookback_window)
-        )
+        .with_columns(pl.col(num_events_col).fill_null(0))
     )
 
     return main

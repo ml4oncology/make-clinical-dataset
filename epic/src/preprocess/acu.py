@@ -33,25 +33,27 @@ def get_acute_care_use(
     discharge = (
         discharge
         .select('mrn', 'hosp_admission_date', 'hosp_discharge_date', 'clinical_notes', 'length_of_stay')
+        .rename({'clinical_notes': 'note'})
         .with_columns(pl.lit("Discharge Summary").alias('data_source'))
     )
     triage = (
         triage
         .select('mrn', 'ED_arrival_date', 'CTAS Score', 'History/Assessment')
-        .rename({'CTAS Score': 'CTAS_score', 'History/Assessment': 'history_and_assessment'})
+        .rename({'CTAS Score': 'CTAS_score', 'History/Assessment': 'note'})
         .with_columns(pl.col('ED_arrival_date').cast(pl.Date))
         .group_by(["mrn", "ED_arrival_date"])
         .agg([
             # if patients visited multiple times in a single day, 
-            # take the first CTAS score but concatenate the assessment
+            # take the first CTAS score but concatenate the assessment note
             pl.col('CTAS_score').first(),
-            pl.col('history_and_assessment').str.join('\n-----------\n')
+            pl.col('note').str.join('\n-----------\n')
         ])
         .with_columns(pl.lit("ER Triage Assessment").alias('data_source'))
     )
     provider_notes = (
         provider_notes
         .select('mrn', 'ED_arrival_date', 'clinical_notes')
+        .rename({'clinical_notes': 'note'})
         .with_columns(pl.lit("ED Provider Notes").alias('data_source'))
     )
     epic_arrival_dates = (

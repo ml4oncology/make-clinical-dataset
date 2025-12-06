@@ -45,35 +45,50 @@ def get_death_labels(
 ###############################################################################
 def get_acu_labels(
     main: pl.DataFrame | pl.LazyFrame, 
-    acu: pl.DataFrame | pl.LazyFrame, 
+    event: pl.DataFrame | pl.LazyFrame, 
     main_date_col: str, 
+    event_date_col: str,
+    event_name: str = 'event',
+    extra_cols: list[str] = None,
     lookahead_window: int | list[int] = 30
 ) -> pl.DataFrame | pl.LazyFrame:
+    """
+    Args:
+        extra_cols: Additional columns to keep as label metadata
+    """
+    if extra_cols is None:
+        extra_cols = []
     if isinstance(lookahead_window, int):
         lookahead_window = [lookahead_window]
 
-    acu = acu.rename({'admission_date': 'target_ED_date'})
+    # rename the columns
+    col_map = {
+        'mrn': 'mrn', 
+        event_date_col: f'target_{event_name}_date', 
+        **{col: f"target_{event_name}_{col}" for col in extra_cols}
+    }
+    event = event.select(col_map).rename(col_map)
 
     main = merge_closest_measurements(
-        main, acu, main_date_col=main_date_col, meas_date_col="target_ED_date", 
+        main, event, main_date_col=main_date_col, meas_date_col=f"target_{event_name}_date", 
         merge_individually=False, direction='forward', time_window=(0, max(lookahead_window))
     )
 
     for days in lookahead_window:
-        max_date = pl.col('assessment_date') + pl.duration(days=days)
+        max_date = pl.col(main_date_col) + pl.duration(days=days)
         main = main.with_columns(
             # censored
-            pl.when(pl.col('target_ED_date').is_null() & (pl.col('last_seen_date') < max_date))
+            pl.when(pl.col(f"target_{event_name}_date").is_null() & (pl.col('last_seen_date') < max_date))
             .then(-1)
             # no visit or outside lookahead window
-            .when(pl.col('target_ED_date').is_null() | (pl.col('target_ED_date') >= max_date))
+            .when(pl.col(f"target_{event_name}_date").is_null() | (pl.col(f"target_{event_name}_date") >= max_date))
             .then(0)
             # immediate visit
-            .when(pl.col('target_ED_date') < (pl.col('assessment_date') + pl.duration(days=1)))
+            .when(pl.col(f"target_{event_name}_date") < (pl.col(main_date_col) + pl.duration(days=1)))
             .then(-1)
             # yes visit 
             .otherwise(1)
-            .alias(f"target_ED_{days}d")
+            .alias(f"target_{event_name}_{days}d")
         )
 
     return main
