@@ -7,9 +7,9 @@ import os
 import polars as pl
 import yaml
 from make_clinical_dataset.epic.combine import (
+    combine_acu_to_main_data,
     combine_chemo_to_main_data,
     combine_demographic_to_main_data,
-    combine_event_to_main_data,
     combine_radiation_to_main_data,
     merge_closest_measurements,
 )
@@ -63,6 +63,8 @@ def main():
 
     supp = chemo.filter(pl.col('drug_type') == "supportive")
     chemo = chemo.filter(pl.col('drug_type') == "direct")
+    hosp = acu.filter(pl.col('data_source') == "Discharge Summary")
+    emerg = acu.filter(pl.col('data_source') != "Discharge Summary")
 
     if align_on == 'treatment-dates':
         main = (
@@ -83,9 +85,9 @@ def main():
     main = combine_demographic_to_main_data(main, demog, main_date_col)
     main = combine_chemo_to_main_data(main, chemo, main_date_col, time_window=(-28,0))
     main = combine_radiation_to_main_data(main, rad, main_date_col, time_window=(-28,0))
+    main = combine_acu_to_main_data(main, acu, main_date_col, lookback_window=5)
     main = merge_closest_measurements(main, lab, main_date_col, "obs_date", include_meas_date=True, time_window=(-5,0))
     main = merge_closest_measurements(main, sym, main_date_col, "obs_date", include_meas_date=True, time_window=(-30,0))
-    main = combine_event_to_main_data(main, acu, main_date_col, "ED_visit", lookback_window=5)
 
     # Extract targets
     main = get_acu_labels(main, acu, main_date_col, lookahead_window=[30, 60, 90])

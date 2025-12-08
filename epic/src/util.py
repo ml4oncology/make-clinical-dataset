@@ -1,5 +1,7 @@
+import matplotlib.ticker as ticker
 import pandas as pd
 import polars as pl
+import seaborn as sns
 from make_clinical_dataset.shared import logger
 from make_clinical_dataset.shared.constants import OBS_MAP
 
@@ -28,6 +30,40 @@ def load_table(data_path: str, mode: str = 'eager') -> pl.DataFrame | pl.LazyFra
     if data_path.endswith('.xlsx'):
         df = pl.read_excel(data_path)
     return df
+
+
+###############################################################################
+# EDA / Visualizations
+###############################################################################
+def plot_count_over_time(
+    counts: pd.DataFrame, 
+    catcol: str,
+    x: str = "year", 
+    y: str = "counts",
+    **kwargs
+) -> sns.FacetGrid:
+    """Plot counts over time for each category in a categorical column.
+    
+    Args:
+        counts: DataFrame with counts over time.
+        catcol: The categorical column to create separate plots for.
+        x: The x-axis column (default: "year").
+        y: The y-axis column (default: "counts").
+        **kwargs: Additional keyword arguments for sns.relplot().
+    """
+    defaults = {
+        'col_wrap': 4,
+        'kind': 'line',
+        'markers': True,
+        'markersize': 5,
+        'marker': 'o',
+        'facet_kws': {'sharex': False, 'sharey': False}
+    }
+    plot_kwargs = {**defaults, **kwargs} # user kwargs override defaults
+    g = sns.relplot(data=counts, x=x, y=y, col=catcol, **plot_kwargs)
+    for ax in g.axes.flat:
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+    return g
 
 
 ###############################################################################
