@@ -38,6 +38,11 @@ class DrugFormat(BaseModel):
     unit: Optional[str] = Field(default=None, description="Prescribed dosage unit (e.g., 'mg' for '4MG')")
 
 
+class SiteFormat(BaseModel):
+    cancer_code_ICD10: str = Field(..., min_length=3, max_length=3, description="Normalized cancer site as per oncology ICD-10 code")
+    cancer_site_normalized: str = Field(..., description="Normalized cancer site as per oncology ICD-10 code")
+
+
 class GroqPrompter():
     """
     TODO: Move this to LLM-info-extractor?
@@ -49,9 +54,10 @@ class GroqPrompter():
 
     def generate_responses(
         self, 
-        dataset: list[str], 
+        dataset: pd.Series, 
         save_path: str, 
-        model_name: str = "llama-3.3-70b-versatile"
+        model_name: str = "llama-3.3-70b-versatile",
+        response_format: BaseModel | None = None
     ):
         """
         Args:
@@ -68,14 +74,18 @@ class GroqPrompter():
             results = []
                     
         for i, text in tqdm(enumerate(dataset)):
-            generated_text = self.generate_response(user_input=text, model_name=model_name)
+            generated_text = self.generate_response(
+                user_input=text, 
+                model_name=model_name, 
+                response_format=response_format
+            )
             try:
                 result = json.loads(generated_text)
                 if isinstance(result, list):
                     raise ValueError("Received a list instead of a dict")
             except (json.JSONDecodeError, ValueError):
                 result = {'failed_output': generated_text}
-            result['drug_name'] = text
+            result[dataset.name] = text
             results.append(result)
 
             # save checkpoints at every 10th data point
@@ -101,7 +111,7 @@ class GroqPrompter():
             kwargs['response_format'] = {
                 "type": "json_schema",
                 "json_schema": {
-                    "name": "drug",
+                    "name": "schema",
                     "schema": response_format.model_json_schema()
                 }
             }
@@ -201,9 +211,10 @@ Output: {"drug_name": "pembrolizumab", "type": "direct", "dose": 50, "unit": "ml
 """
     prompter = GroqPrompter(system_instr)
     results = prompter.generate_responses(
-        dataset=unprocessed_drugs['drug_name'].tolist(), 
+        dataset=unprocessed_drugs['drug_name'], 
         save_path=save_path, 
         model_name="openai/gpt-oss-120b", # "llama-3.3-70b-versatile"
+        response_format=DrugFormat,
     )
 
     # set all drugs used in trial and studies as study_drug
@@ -249,7 +260,7 @@ Output: {"regimen_normalized": "CISPETOP(RT)", "schedule": null, "radiation_ther
 
 
 def normalize_sites(data_dir: str):
-    save_path = f'{data_dir}/interim/site_names_normalized.csv'
+    save_path = f'{data_dir}/interim/sites/site_names_normalized.csv'
     if not os.path.exists(save_path):
         get_all_sites(save_path)
     sites = pd.read_csv(save_path)
@@ -268,7 +279,7 @@ Rules:
 1. ONLY provide the first three letters of the ICD-10 code
 2. Select the BEST and MOST SPECIFIC ICD-10 code that matches the input text.
 3. If the description does not clearly match any code, set "cancer_code_ICD10" to null.
-4. For "ncancer_site_normalized":
+4. For "cancer_site_normalized":
    - Return a brief, standardized anatomical site name.
    - Do **not** just copy the input text; normalize to the canonical anatomical term.
 5. Do NOT infer or guess beyond what is explicitly stated.
@@ -290,15 +301,35 @@ Output:
   "cancer_code_ICD10": "C08",
   "cancer_site_normalized": "Other and unspecified major salivary glands",
 }
+
+Input: "Upper lobe, lung"
+Output:
+{
+  "cancer_code_ICD10": "C34",
+  "cancer_site_normalized": "Lung",
+}
+
+Input: "Skin of: ankle, calf, foot, heel, hip, knee, leg, lower limb, popliteal space, thigh, toe"
+Output:
+{
+  "cancer_code_ICD10": "C44",
+  "cancer_site_normalized": "Skin",
+}
+
+Input: "Appendix" | "Sigmoid Colon" | "Cecum"
+Output:
+{
+  "cancer_code_ICD10": "C18",
+  "cancer_site_normalized": "Colon",
+}
 """
     prompter = GroqPrompter(system_instr)
     results = prompter.generate_responses(
-        dataset=sites['PRIMARY_SITE_DESC'].tolist(), 
+        dataset=sites['PRIMARY_SITE_DESC'], 
         save_path=save_path, 
         model_name="openai/gpt-oss-120b",
+        response_format=SiteFormat
     )
-    results.index = sites.index
-    results = pd.concat([sites, results], axis=1)
     save_table(results, save_path, index=False)
 
     
