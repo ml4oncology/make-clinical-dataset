@@ -48,7 +48,7 @@ def get_diagnosis_data() -> pd.DataFrame:
     """Load, clean, filter, process diagnosis data."""
     df = pd.read_csv(f'{INFO_DIR}/cancer_diag.csv')
     df = clean_diagnosis_data(df)
-    # df = filter_diagnosis_data(df)
+    df = process_diagnosis_data(df)
     return df
 
 
@@ -70,7 +70,6 @@ def clean_diagnosis_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def filter_diagnosis_data(df: pd.DataFrame) -> pd.DataFrame:
-    # drop duplicates - keep it simple, only retain the first morphology description
-    df = df.drop_duplicates(subset=df.columns.drop('morphology_desc'))
+def process_diagnosis_data(df: pd.DataFrame) -> pd.DataFrame:
+    df['cancer_desc'] = df["primary_site_desc"] + '\n' + df["morphology_desc"]
     return df
