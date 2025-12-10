@@ -3,6 +3,7 @@ Module to preprocess demographic and cancer diagnosis data
 """
 import pandas as pd
 from make_clinical_dataset.shared.constants import INFO_DIR
+from ml_common.constants import CANCER_CODE_MAP
 
 
 ###############################################################################
@@ -26,9 +27,6 @@ def get_demographic_data(
     # fix dtypes
     df['death_date'] = pd.to_datetime(df['death_date'], format='ISO8601', utc=True).dt.tz_convert(None)
 
-    # map the patient ID to mrns
-    df['mrn'] = df.pop('patient').map(id_to_mrn)
-
     # fix language and and religion entries
     for col in ['preferred_language', 'religion']:
         df[col] = df[col].str.strip().str.lower()
@@ -37,6 +35,9 @@ def get_demographic_data(
     assert df['race'].isna().all()
     assert df['ethnicity'].isna().all()
     df = df.drop(columns=["race", "ethnicity"])
+
+    # map the patient ID to mrns
+    df['mrn'] = df.pop('patient').map(id_to_mrn)
     
     return df
 
@@ -47,13 +48,11 @@ def get_demographic_data(
 def get_diagnosis_data() -> pd.DataFrame:
     """Load, clean, filter, process diagnosis data."""
     df = pd.read_csv(f'{INFO_DIR}/cancer_diag.csv')
-    df = clean_diagnosis_data(df)
-    df = process_diagnosis_data(df)
-    return df
+    
+    # get the site mapping
+    site_map = pd.read_csv(f'{INFO_DIR}/site_names_normalized_v1.csv')
+    site_to_code = site_map.set_index('PRIMARY_SITE_DESC')['cancer_code_ICD10'].to_dict()
 
-
-def clean_diagnosis_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean and rename column names and entries."""
     # rename the columns
     df.columns = df.columns.str.lower()
     df = df.rename(columns={
@@ -67,9 +66,13 @@ def clean_diagnosis_data(df: pd.DataFrame) -> pd.DataFrame:
     for col in ['birth_date', 'diagnosis_date']: 
         df[col] = pd.to_datetime(df[col])
 
-    return df
+    # map the raw primary site description to ICD-10 code
+    df['primary_site_code'] = df['primary_site_desc'].map(site_to_code)
 
+    # combine the raw primary site and raw morphology description into a single column
+    df['cancer_desc'] = df.pop("primary_site_desc") + '\n' + df.pop("morphology_desc")
 
-def process_diagnosis_data(df: pd.DataFrame) -> pd.DataFrame:
-    df['cancer_desc'] = df["primary_site_desc"] + '\n' + df["morphology_desc"]
+    # map code back to a normalized primary site description
+    df['primary_site_desc'] = df['primary_site_code'].map(CANCER_CODE_MAP)
+
     return df
