@@ -208,7 +208,7 @@ def combine_event_to_main_data(
         .agg(
             pl.len().alias(num_events_col),
             pl.col(event_date_col).max().alias(prev_date_col),
-            *[pl.col(col).first().alias(f'prev_{event_name}_{col}') for col in extra_cols]
+            *[pl.col(col).last().alias(f'prev_{event_name}_{col}') for col in extra_cols]
         )
         .with_columns(
             (pl.col(main_date_col) - pl.col(prev_date_col)).dt.total_days().alias(days_since_col)
