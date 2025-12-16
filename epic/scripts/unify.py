@@ -63,8 +63,6 @@ def main():
 
     supp = chemo.filter(pl.col('drug_type') == "supportive")
     chemo = chemo.filter(pl.col('drug_type') == "direct")
-    hosp = acu.filter(pl.col('data_source') == "Discharge Summary")
-    emerg = acu.filter(pl.col('data_source') != "Discharge Summary")
 
     if align_on == 'treatment-dates':
         main = (
@@ -95,7 +93,7 @@ def main():
     main = get_symptom_labels(main, sym, main_date_col)
     main = get_death_labels(main, lookahead_window=[30, 365])
     
-    date_cols = ['mrn'] + [col for col, dtype in main.schema.items() if dtype == pl.Datetime]
+    date_cols = ['mrn'] + [col for col, dtype in main.schema.items() if dtype in [pl.Datetime, pl.Date]]
     str_cols = [col for col, dtype in main.schema.items() if dtype == pl.String]
     feat_cols = ['mrn', main_date_col] + str_cols + [col for col in main.columns if col not in date_cols+str_cols]
     main_dates = main.select(date_cols)

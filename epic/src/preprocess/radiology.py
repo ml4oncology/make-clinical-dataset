@@ -115,6 +115,7 @@ def process_radiology_data(df: pl.LazyFrame):
         pl.when(pl.col("initial_report_date") < pl.col("last_addendum_date"))
         .then(pl.col("last_addendum_date"))
         .otherwise(pl.col("initial_report_date"))
+        .cast(pl.Datetime)
         .alias("date")
     )
 
