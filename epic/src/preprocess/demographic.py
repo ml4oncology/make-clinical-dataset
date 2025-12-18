@@ -70,7 +70,7 @@ def get_diagnosis_data() -> pd.DataFrame:
     df['primary_site_code'] = df['primary_site_desc'].map(site_to_code)
 
     # combine the raw primary site and raw morphology description into a single column
-    df['cancer_desc'] = df.pop("primary_site_desc") + '\n' + df.pop("morphology_desc")
+    df['cancer_desc'] = df["primary_site_desc"] + '\n' + df["morphology_desc"]
 
     # map code back to a normalized primary site description
     df['primary_site_desc'] = df['primary_site_code'].map(CANCER_CODE_MAP)

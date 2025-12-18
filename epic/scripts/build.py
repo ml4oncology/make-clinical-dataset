@@ -8,6 +8,7 @@ from make_clinical_dataset.epic.preprocess.acu import (
     get_epic_arrival_dates,
     get_triage_data,
 )
+from make_clinical_dataset.epic.preprocess.clinic import get_clinic_data
 from make_clinical_dataset.epic.preprocess.demographic import (
     get_demographic_data,
     get_diagnosis_data,
@@ -74,6 +75,11 @@ def build_symptoms(id_to_mrn: dict[str, int]):
 def build_radiology_reports(id_to_mrn: dict[str, int]):
     reports = get_radiology_data(id_to_mrn, data_dir=RAD_DIR)
     reports.write_parquet(f'{OUTPUT_DIR}/radiology_reports.parquet')
+
+
+def build_clinic_visits():
+    df = get_clinic_data(NOTES_PATH)
+    df.sink_parquet(f'{OUTPUT_DIR}/clinic_visits.parquet')
     
 
 def build_acute_care_use(id_to_mrn: dict[str, int]):

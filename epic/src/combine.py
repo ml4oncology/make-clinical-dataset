@@ -128,21 +128,25 @@ def combine_demographic_to_main_data(
     main: pl.DataFrame | pl.LazyFrame, 
     demog: pl.DataFrame | pl.LazyFrame, 
     main_date_col: str, 
+    exclude_missing_age: bool = True,
+    exclude_underage: bool = True,
 ) -> pl.DataFrame | pl.LazyFrame:
     main = merge_closest_measurements(
         main, demog, main_date_col=main_date_col, meas_date_col="diagnosis_date", 
         merge_individually=False, time_window=[-1e8, 0]
     )
 
-    # exclude patients with missing birth date
-    main = main.filter(pl.col("birth_date").is_not_null())
+    if exclude_missing_age:
+        # exclude patients with missing birth date
+        main = main.filter(pl.col("birth_date").is_not_null())
 
     # create age column
     age = (pl.col(main_date_col) - pl.col("birth_date")).dt.total_days() / 365.25
     main = main.with_columns(age.alias('age'))
 
-    # exclude patients under 18 years of age
-    main = main.filter(pl.col('age') >= 18)
+    if exclude_underage:
+        # exclude patients under 18 years of age
+        main = main.filter(pl.col('age') >= 18)
 
     return main
 
