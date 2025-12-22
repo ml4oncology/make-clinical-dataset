@@ -50,9 +50,13 @@ def get_clinic_data(filepath: str) -> pl.LazyFrame:
     # create unique id for each note based on the content of the note
     df = df.with_columns(
         pl.col("note")
-        .map_elements(lambda s: hashlib.md5(s.encode()).hexdigest(), return_dtype=pl.String)
+        .map_elements(_hash_note, return_dtype=pl.String)
         .alias('note_id')
     )
 
     df = df.sort('mrn', 'clinic_date')
     return df
+
+
+def _hash_note(text: str) -> str:
+    return hashlib.md5(text.encode()).hexdigest()

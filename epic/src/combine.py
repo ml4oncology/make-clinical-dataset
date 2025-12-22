@@ -43,6 +43,10 @@ def merge_closest_measurements(
     # ensure date types match
     meas = meas.with_columns(pl.col(meas_date_col).cast(main.schema["main_date"]))
 
+    # ensure both dataframes are sorted (may be redundant, but got burned too many times)
+    main = main.sort('mrn', main_date_col)
+    meas = meas.sort('mrn', meas_date_col)
+
     merge_kwargs = dict(
         left_on='main_date', right_on=meas_date_col, by='mrn', strategy=direction,
         tolerance=datetime.timedelta(days=upper_limit - lower_limit), check_sortedness=False
@@ -227,3 +231,50 @@ def combine_event_to_main_data(
     )
 
     return main
+
+
+def get_clinic_prior_to_treatment(
+    clinic: pl.DataFrame | pl.LazyFrame, 
+    treatment: pl.DataFrame | pl.LazyFrame,
+    lookback_window: int = 5, # days
+    phys_names: list[str] | None = None
+) -> pl.DataFrame | pl.LazyFrame:
+    """
+    Only keep the earliest clinic visit prior to a given treatment session within the lookback window
+
+    Args:
+        phys_names: If provided, only keep clinic visits from these physicians
+
+    NOTE: merge_closest_measurement uses pl.join_asof, which is much more efficient than join
+    when dealing with large amount of text data
+    """
+    if phys_names is not None:
+        # filter by physician names
+        clinic = clinic.filter(pl.col('physician_name').is_in(phys_names))
+
+    # only keep clinic visits that has a treatment scheduled within the next X days
+    df = merge_closest_measurements(
+        clinic, 
+        treatment.select("mrn", "treatment_date"), 
+        main_date_col="clinic_date", 
+        meas_date_col="treatment_date", 
+        merge_individually=False, 
+        direction='forward', 
+        time_window=(0, lookback_window)
+    )
+    df = (
+        df
+        .rename({'treatment_date': 'next_sched_trt_date'})
+        .filter(pl.col('next_sched_trt_date').is_not_null())
+    )
+
+    # take the earliest clinical note for a given treatment session 
+    # (if multiple visits within X days prior to a treatment session)
+    # TODO: explore other strategies, like concatneation
+    df = (
+        df
+        .unique(subset=['mrn', 'next_sched_trt_date'])
+        .sort('mrn', 'clinic_date')
+    )
+
+    return df

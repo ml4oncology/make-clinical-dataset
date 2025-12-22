@@ -24,11 +24,14 @@ def get_radiation_data(
     # reorder the columns
     cols = [
         'mrn', 'treatment_start_date', 'treatment_end_date', 'intent', 
-        'given_dose', 'fractions_given', 'dose_prescribed', 'fractions_prescribed', 
+        'dose_given', 'fractions_given', 'dose_prescribed', 'fractions_prescribed', 
         'diagnosis_icd_code', 'diagnosis_desc', 'diagnosis_category', 
         'morphology', 'site_treated', 'technique', 
     ]
     df = df[cols]
+
+    # sort the data
+    df = df.sort_values(by=['mrn', 'treatment_start_date'])
 
     return df
 

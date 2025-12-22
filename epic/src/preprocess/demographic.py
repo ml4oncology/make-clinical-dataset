@@ -66,6 +66,9 @@ def get_diagnosis_data() -> pd.DataFrame:
     for col in ['birth_date', 'diagnosis_date']: 
         df[col] = pd.to_datetime(df[col])
 
+    # exclude rows without diagnosis date
+    df = df[df['diagnosis_date'].notna()]
+
     # map the raw primary site description to ICD-10 code
     df['primary_site_code'] = df['primary_site_desc'].map(site_to_code)
 
@@ -74,5 +77,8 @@ def get_diagnosis_data() -> pd.DataFrame:
 
     # map code back to a normalized primary site description
     df['primary_site_desc'] = df['primary_site_code'].map(CANCER_CODE_MAP)
+
+    # sort the data
+    df = df.sort_values(by=['mrn', 'diagnosis_date'])
 
     return df
