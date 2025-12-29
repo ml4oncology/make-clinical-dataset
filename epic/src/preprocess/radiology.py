@@ -14,8 +14,7 @@ def get_radiology_data(
     """Load, clean, filter, process radiology observation data."""
     if data_dir is None:
         data_dir = './data/raw/radiology'
-    # NOTE: df["COL"] only works in eager mode, use pl.col("COL") in lazy mode
-    rad = pl.read_parquet(f'{data_dir}/*.parquet').lazy()
+    rad = pl.scan_parquet(f'{data_dir}/*.parquet')
     rad = clean_radiology_data(rad, id_to_mrn=id_to_mrn)
     rad = filter_radiology_data(rad, verbose=verbose)
     rad = process_radiology_data(rad)
@@ -115,6 +114,7 @@ def process_radiology_data(df: pl.LazyFrame):
         pl.when(pl.col("initial_report_date") < pl.col("last_addendum_date"))
         .then(pl.col("last_addendum_date"))
         .otherwise(pl.col("initial_report_date"))
+        .cast(pl.Datetime)
         .alias("date")
     )
 

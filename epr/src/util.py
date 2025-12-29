@@ -1,3 +1,4 @@
+import difflib
 from typing import Optional
 
 import pandas as pd
@@ -86,3 +87,11 @@ def get_text_size(text: pd.Series):
         text.str.len().describe(),
         text.str.split().str.len().describe(),
     ], keys=['Length of text', 'Number of words'], axis=1)
+
+
+def get_text_diff(text1: str, text2: str) -> str:
+    diff = difflib.unified_diff(
+        text1.splitlines(), text2.splitlines(),
+        fromfile='text1', tofile='text2', lineterm=''
+    )
+    return '\n'.join(diff)

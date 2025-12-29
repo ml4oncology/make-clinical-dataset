@@ -2,14 +2,15 @@
 Module to extract/normalize/collapse information from non-sensitive text via LLMs.
 We will specificially use Groq for it's generous API request quota.
 
-Current use case is to normalize/collapse the drug name and regimen name from the raw treatment data text. 
+Current use case is to normalize/collapse the drug name, regimen name, and primary cancer site 
+from the raw treatment and diagnosis data text. 
+
 In addition, we want to extract whether each drug is supportive or a direct anticancer drug,
 and its prescribed dosage and unit.
 """
 import argparse
 import json
 import os
-from glob import glob
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -27,6 +28,7 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 PRE_EPIC_CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_2025-07-02.parquet'
 EPIC_CHEMO_PATH = f'{ROOT_DIR}/data/processed/treatment/chemo_2025-11-03.parquet'
+DIAG_PATH = f'{INFO_DIR}/cancer_diag.csv'
 
 
 class DrugFormat(BaseModel):
@@ -34,6 +36,11 @@ class DrugFormat(BaseModel):
     type: Literal["supportive", "direct"] = Field(..., description="Classification of the drug based on its purpose")
     dose: Optional[float] = Field(default=None, description="Prescribed dosage amount (e.g., 4.0 for '4MG')")
     unit: Optional[str] = Field(default=None, description="Prescribed dosage unit (e.g., 'mg' for '4MG')")
+
+
+class SiteFormat(BaseModel):
+    cancer_code_ICD10: str = Field(..., min_length=3, max_length=3, description="Normalized cancer site as per oncology ICD-10 code")
+    cancer_site_normalized: str = Field(..., description="Normalized cancer site as per oncology ICD-10 code")
 
 
 class GroqPrompter():
@@ -47,9 +54,10 @@ class GroqPrompter():
 
     def generate_responses(
         self, 
-        dataset: list[str], 
+        dataset: pd.Series, 
         save_path: str, 
-        model_name: str = "llama-3.3-70b-versatile"
+        model_name: str = "llama-3.3-70b-versatile",
+        response_format: BaseModel | None = None
     ):
         """
         Args:
@@ -66,14 +74,18 @@ class GroqPrompter():
             results = []
                     
         for i, text in tqdm(enumerate(dataset)):
-            generated_text = self.generate_response(user_input=text, model_name=model_name)
+            generated_text = self.generate_response(
+                user_input=text, 
+                model_name=model_name, 
+                response_format=response_format
+            )
             try:
                 result = json.loads(generated_text)
                 if isinstance(result, list):
                     raise ValueError("Received a list instead of a dict")
             except (json.JSONDecodeError, ValueError):
                 result = {'failed_output': generated_text}
-            result['drug_name'] = text
+            result[dataset.name] = text
             results.append(result)
 
             # save checkpoints at every 10th data point
@@ -99,7 +111,7 @@ class GroqPrompter():
             kwargs['response_format'] = {
                 "type": "json_schema",
                 "json_schema": {
-                    "name": "drug",
+                    "name": "schema",
                     "schema": response_format.model_json_schema()
                 }
             }
@@ -144,6 +156,12 @@ def get_all_regimens(save_path: str):
         .sort('len', descending=True)
     )
     regimens.write_csv(save_path)
+
+
+def get_all_sites(save_path: str):
+    diag = pl.read_csv(DIAG_PATH)
+    sites = diag['PRIMARY_SITE_DESC'].value_counts().sort('count', descending=True)
+    sites.write_csv(save_path)
 
 
 def normalize_drugs(data_dir: str):
@@ -193,9 +211,10 @@ Output: {"drug_name": "pembrolizumab", "type": "direct", "dose": 50, "unit": "ml
 """
     prompter = GroqPrompter(system_instr)
     results = prompter.generate_responses(
-        dataset=unprocessed_drugs['drug_name'].tolist(), 
+        dataset=unprocessed_drugs['drug_name'], 
         save_path=save_path, 
         model_name="openai/gpt-oss-120b", # "llama-3.3-70b-versatile"
+        response_format=DrugFormat,
     )
 
     # set all drugs used in trial and studies as study_drug
@@ -207,7 +226,7 @@ Output: {"drug_name": "pembrolizumab", "type": "direct", "dose": 50, "unit": "ml
     save_table(results, save_path, index=False)
 
 
-def normalize_regimens():
+def normalize_regimens(data_dir: str):
     system_instr = """
 You are a professional natural language processing assistant specialized in medical text.
 Your task is to extract and normalize regimen information from unstructured text.
@@ -239,14 +258,90 @@ Input: 'LU-ETOPCISP-RT'
 Output: {"regimen_normalized": "CISPETOP(RT)", "schedule": null, "radiation_therapy": yes, "additional_notes": null}
 """
 
+
+def normalize_sites(data_dir: str):
+    save_path = f'{data_dir}/interim/sites/site_names_normalized.csv'
+    if not os.path.exists(save_path):
+        get_all_sites(save_path)
+    sites = pd.read_csv(save_path)
+    system_instr = """
+You are a professional natural language processing assistant specialized in clinical oncology terminology.
+Your task is to normalize unstructured cancer site descriptions into ICD-10 cancer codes.
+
+Only return a structured JSON object matching the following schema:
+
+{
+  "cancer_code_ICD10": "<string or null>",
+  "cancer_site_normalized": "<string or null>",
+}
+
+Rules:
+1. ONLY provide the first three letters of the ICD-10 code
+2. Select the BEST and MOST SPECIFIC ICD-10 code that matches the input text.
+3. If the description does not clearly match any code, set "cancer_code_ICD10" to null.
+4. For "cancer_site_normalized":
+   - Return a brief, standardized anatomical site name.
+   - Do **not** just copy the input text; normalize to the canonical anatomical term.
+5. Do NOT infer or guess beyond what is explicitly stated.
+6. Use the internet if needed to confirm anatomical terminology or definitions.
+7. Only output the JSON. No explanations.
+
+Here are some examples:
+
+Input: "Central portion of breast"
+Output:
+{
+  "cancer_code_ICD10": "C50",
+  "cancer_site_normalized": "Breast",
+}
+
+Input: "Submandibular gland"
+Output:
+{
+  "cancer_code_ICD10": "C08",
+  "cancer_site_normalized": "Other and unspecified major salivary glands",
+}
+
+Input: "Upper lobe, lung"
+Output:
+{
+  "cancer_code_ICD10": "C34",
+  "cancer_site_normalized": "Lung",
+}
+
+Input: "Skin of: ankle, calf, foot, heel, hip, knee, leg, lower limb, popliteal space, thigh, toe"
+Output:
+{
+  "cancer_code_ICD10": "C44",
+  "cancer_site_normalized": "Skin",
+}
+
+Input: "Appendix" | "Sigmoid Colon" | "Cecum"
+Output:
+{
+  "cancer_code_ICD10": "C18",
+  "cancer_site_normalized": "Colon",
+}
+"""
+    prompter = GroqPrompter(system_instr)
+    results = prompter.generate_responses(
+        dataset=sites['PRIMARY_SITE_DESC'], 
+        save_path=save_path, 
+        model_name="openai/gpt-oss-120b",
+        response_format=SiteFormat
+    )
+    save_table(results, save_path, index=False)
+
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', type=str, default='./data')
-    parser.add_argument('--normalize', type=str, choices=['drugs', 'regimens'])
+    parser.add_argument('--normalize', type=str, choices=['drugs', 'regimens', 'sites'])
     args = parser.parse_args()
 
     if args.normalize == 'drugs':
         normalize_drugs(data_dir=args.data_dir)
     elif args.normalize == 'regimens':
         normalize_regimens(data_dir=args.data_dir)
+    elif args.normalize == 'sites':
+        normalize_sites(data_dir=args.data_dir)

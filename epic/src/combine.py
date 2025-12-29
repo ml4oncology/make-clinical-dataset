@@ -43,6 +43,10 @@ def merge_closest_measurements(
     # ensure date types match
     meas = meas.with_columns(pl.col(meas_date_col).cast(main.schema["main_date"]))
 
+    # ensure both dataframes are sorted (may be redundant, but got burned too many times)
+    main = main.sort('mrn', main_date_col)
+    meas = meas.sort('mrn', meas_date_col)
+
     merge_kwargs = dict(
         left_on='main_date', right_on=meas_date_col, by='mrn', strategy=direction,
         tolerance=datetime.timedelta(days=upper_limit - lower_limit), check_sortedness=False
@@ -128,21 +132,25 @@ def combine_demographic_to_main_data(
     main: pl.DataFrame | pl.LazyFrame, 
     demog: pl.DataFrame | pl.LazyFrame, 
     main_date_col: str, 
+    exclude_missing_age: bool = True,
+    exclude_underage: bool = True,
 ) -> pl.DataFrame | pl.LazyFrame:
     main = merge_closest_measurements(
         main, demog, main_date_col=main_date_col, meas_date_col="diagnosis_date", 
         merge_individually=False, time_window=[-1e8, 0]
     )
 
-    # exclude patients with missing birth date
-    main = main.filter(pl.col("birth_date").is_not_null())
+    if exclude_missing_age:
+        # exclude patients with missing birth date
+        main = main.filter(pl.col("birth_date").is_not_null())
 
     # create age column
     age = (pl.col(main_date_col) - pl.col("birth_date")).dt.total_days() / 365.25
     main = main.with_columns(age.alias('age'))
 
-    # exclude patients under 18 years of age
-    main = main.filter(pl.col('age') >= 18)
+    if exclude_underage:
+        # exclude patients under 18 years of age
+        main = main.filter(pl.col('age') >= 18)
 
     return main
 
@@ -208,7 +216,7 @@ def combine_event_to_main_data(
         .agg(
             pl.len().alias(num_events_col),
             pl.col(event_date_col).max().alias(prev_date_col),
-            *[pl.col(col).first().alias(f'prev_{event_name}_{col}') for col in extra_cols]
+            *[pl.col(col).last().alias(f'prev_{event_name}_{col}') for col in extra_cols]
         )
         .with_columns(
             (pl.col(main_date_col) - pl.col(prev_date_col)).dt.total_days().alias(days_since_col)
@@ -223,3 +231,56 @@ def combine_event_to_main_data(
     )
 
     return main
+
+
+def get_clinic_prior_to_treatment(
+    clinic: pl.DataFrame | pl.LazyFrame, 
+    treatment: pl.DataFrame | pl.LazyFrame,
+    lookback_window: int = 5, # days
+    phys_names: list[str] | None = None,
+    strategy: str = 'earliest'
+) -> pl.DataFrame | pl.LazyFrame:
+    """
+    Only keep clinic visits prior to a given treatment session within the lookback window
+
+    Args:
+        phys_names: If provided, only keep clinic visits from these physicians
+        strategy: The strategy used to handle multiple clinical notes prior to treatment within lookback window. 
+            Either 'earliest' (keep earliest clinical note) or 'all' (keep all notes)
+
+    NOTE: merge_closest_measurement uses pl.join_asof, which is much more efficient than join
+    when dealing with large amount of text data
+    """
+    if phys_names is not None:
+        # filter by physician names
+        clinic = clinic.filter(pl.col('physician_name').is_in(phys_names))
+
+    # only keep clinic visits that has a treatment scheduled within the next X days
+    df = merge_closest_measurements(
+        clinic, 
+        treatment.select("mrn", "treatment_date"), 
+        main_date_col="clinic_date", 
+        meas_date_col="treatment_date", 
+        merge_individually=False, 
+        direction='forward', 
+        time_window=(0, lookback_window)
+    )
+    df = (
+        df
+        .rename({'treatment_date': 'next_sched_trt_date'})
+        .filter(pl.col('next_sched_trt_date').is_not_null())
+    )
+
+    # TODO: explore other strategies, like concatneation
+    if strategy == 'earliest':
+        # take the earliest clinical note for a given treatment session 
+        # (if multiple visits within X days prior to a treatment session)
+        df = (
+            df
+            .unique(subset=['mrn', 'next_sched_trt_date'])
+            .sort('mrn', 'clinic_date')
+        )
+    elif strategy == 'all':
+        pass
+
+    return df
