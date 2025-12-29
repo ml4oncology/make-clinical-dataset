@@ -237,13 +237,16 @@ def get_clinic_prior_to_treatment(
     clinic: pl.DataFrame | pl.LazyFrame, 
     treatment: pl.DataFrame | pl.LazyFrame,
     lookback_window: int = 5, # days
-    phys_names: list[str] | None = None
+    phys_names: list[str] | None = None,
+    strategy: str = 'earliest'
 ) -> pl.DataFrame | pl.LazyFrame:
     """
-    Only keep the earliest clinic visit prior to a given treatment session within the lookback window
+    Only keep clinic visits prior to a given treatment session within the lookback window
 
     Args:
         phys_names: If provided, only keep clinic visits from these physicians
+        strategy: The strategy used to handle multiple clinical notes prior to treatment within lookback window. 
+            Either 'earliest' (keep earliest clinical note) or 'all' (keep all notes)
 
     NOTE: merge_closest_measurement uses pl.join_asof, which is much more efficient than join
     when dealing with large amount of text data
@@ -268,13 +271,16 @@ def get_clinic_prior_to_treatment(
         .filter(pl.col('next_sched_trt_date').is_not_null())
     )
 
-    # take the earliest clinical note for a given treatment session 
-    # (if multiple visits within X days prior to a treatment session)
     # TODO: explore other strategies, like concatneation
-    df = (
-        df
-        .unique(subset=['mrn', 'next_sched_trt_date'])
-        .sort('mrn', 'clinic_date')
-    )
+    if strategy == 'earliest':
+        # take the earliest clinical note for a given treatment session 
+        # (if multiple visits within X days prior to a treatment session)
+        df = (
+            df
+            .unique(subset=['mrn', 'next_sched_trt_date'])
+            .sort('mrn', 'clinic_date')
+        )
+    elif strategy == 'all':
+        pass
 
     return df
