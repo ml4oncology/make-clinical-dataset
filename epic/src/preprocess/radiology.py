@@ -1,6 +1,7 @@
 """
 Module to preprocess radiology report data, which includes CT Scans, X-rays, Ultrasounds, etc
 """
+import hashlib
 from datetime import datetime
 
 import polars as pl
@@ -129,7 +130,18 @@ def process_radiology_data(df: pl.LazyFrame):
         .join(proc_names, on=["mrn", "processed_text"], how="left")
         .sort(["mrn", "date"])
         .unique(subset=["mrn", "processed_text"], keep="first")
-        .sort(["mrn", "epr_datetime"]) # need to sort again
     )
-    
+
+    # create unique id for each text based on the content of the text
+    df = df.with_columns(
+        pl.col("processed_text")
+        .map_elements(_hash_text, return_dtype=pl.String)
+        .alias('text_id')
+    )
+
+    df = df.sort('mrn', 'date')
     return df
+
+
+def _hash_text(text: str) -> str:
+    return hashlib.md5(text.encode()).hexdigest()
