@@ -1,7 +1,7 @@
 """
 Module to preprocess clinic visit data
 """
-import hashlib
+from make_clinical_dataset.epic.util import hash_text
 
 import polars as pl
 
@@ -50,13 +50,9 @@ def get_clinic_data(filepath: str) -> pl.LazyFrame:
     # create unique id for each note based on the content of the note
     df = df.with_columns(
         pl.col("note")
-        .map_elements(_hash_note, return_dtype=pl.String)
+        .map_elements(hash_text, return_dtype=pl.String)
         .alias('note_id')
     )
 
     df = df.sort('mrn', 'clinic_date')
     return df
-
-
-def _hash_note(text: str) -> str:
-    return hashlib.md5(text.encode()).hexdigest()

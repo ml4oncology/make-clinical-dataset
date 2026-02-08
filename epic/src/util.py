@@ -1,3 +1,5 @@
+import hashlib
+
 import matplotlib.ticker as ticker
 import pandas as pd
 import polars as pl
@@ -64,6 +66,13 @@ def plot_count_over_time(
     for ax in g.axes.flat:
         ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     return g
+
+
+###############################################################################
+# Text
+###############################################################################
+def hash_text(text: str) -> str:
+    return hashlib.md5(text.encode()).hexdigest()
 
 
 ###############################################################################

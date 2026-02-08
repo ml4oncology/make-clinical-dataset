@@ -18,10 +18,12 @@ dependencies = [
     "polars",
     "pyarrow",
     "pyyaml",
+    "rapidfuzz"
 ]
 
 [project.optional-dependencies]
 dev = [
+    "ml4o-batch-inf @ git+https://github.com/ml4oncology/ml4o-batch-inference.git@script-to-cli",
     "nbstripout",
     "pytest",
     "pytest-xdist",
