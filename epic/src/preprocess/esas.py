@@ -38,7 +38,7 @@ def get_epic_symp_data(filepath: str) -> pd.DataFrame:
 
     # clean ecog entries
     # NOTE: ecog = 5 means death so make sure there are no label leakage.
-    df['ecog'] = df['ecog'].replace('Not Applicable', None)
+    df['ecog'] = df['ecog'].astype(str).replace('Not Applicable', None)
     # some entries have the following format: score-description. Remove the descriptions
     df['ecog'] = df['ecog'].str.split('-').str[0]
 
