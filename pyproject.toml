@@ -14,10 +14,13 @@ dependencies = [
     "tqdm",
     "dotenv",
     "groq",
+    "matplotlib",
     "pandas", 
-    "polars",
+    # "polars",
+    "polars-lts-cpu==1.30.0",
     "pyarrow",
     "pyyaml",
+    "seaborn",
 ]
 
 [project.optional-dependencies]
