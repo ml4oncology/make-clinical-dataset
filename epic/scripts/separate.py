@@ -1,8 +1,6 @@
 """Separate the Observation data into ED, ESAS, radiology, and lab datasets
 
 NOTE: The ED (Emergency Department) dataset contained in Observation data is mostly Triage Assessment data.
-Patients may or may not have been admitted after triage assessment. 
-So for ED, please use the data from clinical notes instead.
 """
 import os
 
