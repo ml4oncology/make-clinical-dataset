@@ -97,7 +97,10 @@ def get_event_labels(
         event_date_col: f'target_{event_name}_date', 
         **{col: f"target_{event_name}_{col}" for col in extra_cols}
     }
-    event = event.select(col_map).rename(col_map)
+    # event = event.select(col_map).rename(col_map)
+    event = event.select(
+        [pl.col(old).alias(new) for old, new in col_map.items()]
+    )
 
     main = merge_closest_measurements(
         main, event, main_date_col=main_date_col, meas_date_col=f"target_{event_name}_date", 

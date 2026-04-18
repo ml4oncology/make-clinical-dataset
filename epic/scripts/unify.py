@@ -55,7 +55,7 @@ def main():
     rad = pl.read_parquet(f'{data_dir}/radiation.parquet')
     lab = pl.read_parquet(f'{data_dir}/lab.parquet')
     sym = pl.read_parquet(f'{data_dir}/symptom.parquet')
-    acu = pl.read_parquet(f'{data_dir}/acute_care_admission_dates.parquet')
+    acu = pl.read_parquet(f'{data_dir}/acute_care_use.parquet')
     demog = pl.read_parquet(f'{data_dir}/demographic.parquet')
     last_seen = pl.read_parquet(f'{data_dir}/last_seen_dates.parquet')
     with open(config_path) as file:
