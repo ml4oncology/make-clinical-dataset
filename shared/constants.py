@@ -369,7 +369,7 @@ CTCAE_CONSTANTS = {
     'AKI': {
         'grade2plus': 1.5, # >1.5 - 3.0 x baseline; >1.5 - 3.0 x ULN
         'grade3plus': 3.0, # >3.0 x baseline; >3.0 - 6.0 x ULN
-        'ULN': 353.68
+        'ULN': 98
     },
     'ALT': {
         'grade2plus': 3.0, # >3.0 - 5.0 x ULN if baseline was normal; >3.0 - 5.0 x baseline if baseline was abnormal
