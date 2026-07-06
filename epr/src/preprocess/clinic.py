@@ -49,17 +49,18 @@ def filter_notes_data(df: pd.DataFrame) -> pd.DataFrame:
 ###############################################################################
 # Clinic Visits
 ###############################################################################
-def get_clinic_visits_during_treatment(clinic: pd.DataFrame, treatment: pd.DataFrame) -> pd.DataFrame:
+def get_clinic_visits_during_treatment(clinic: pd.DataFrame, treatment: pd.DataFrame, lookahead: int) -> pd.DataFrame:
     # combine clinic and treatment
     clinic = clinic[["mrn", "clinic_date", "last_updated_date"]]
     cols = ["treatment_date", "regimen", "line_of_therapy", "intent", "cycle_number", "height", "weight", "body_surface_area"]
-    treatment = treatment[["mrn"] + cols]
+    drug_cols = treatment.columns[treatment.columns.str.startswith('drug_')].tolist()
+    treatment = treatment[["mrn", "first_treatment_date"] + cols + drug_cols]
     df = pd.merge(clinic, treatment, on="mrn", how="inner")
     df = df.rename(columns={col: f"next_{col}" for col in cols})
 
     # filter out clinic visits where the next treatment session does not occur within 5 days
     mask = df["next_treatment_date"].between(
-        df["clinic_date"], df["clinic_date"] + pd.Timedelta(days=5)
+        df["clinic_date"], df["clinic_date"] + pd.Timedelta(days=lookahead)
     )
     df = df[mask]
 
@@ -67,9 +68,23 @@ def get_clinic_visits_during_treatment(clinic: pd.DataFrame, treatment: pd.DataF
     mask = df["last_updated_date"] < df["next_treatment_date"]
     df = df[mask]
 
-    # remove duplicates from the merging
+    # sum drug doses within the same upcoming session (mrn + next_treatment_date), so doses
+    # from a *different* upcoming session for the same clinic visit don't get blended in
+    drug_sums = df.groupby(["mrn", "clinic_date", "next_treatment_date"])[drug_cols].sum()
+
+    # remove duplicates from the merging, keeping only the nearest upcoming treatment's info
     df = df.sort_values(by=["mrn", "next_treatment_date"])
     df = df.drop_duplicates(subset=["mrn", "clinic_date"], keep="first")
+    df = df.drop(columns=drug_cols)
+
+    # attach the summed drug doses
+    df = df.join(drug_sums, on=["mrn", "clinic_date", "next_treatment_date"])
+
+    # rename back to unprefixed names to stay compatible with downstream code;
+    # next_treatment_date is the one exception that keeps its prefix
+    rename_cols = [c for c in cols if c != "treatment_date"]
+    df = df.rename(columns={f"next_{c}": c for c in rename_cols})
+    df['treatment_date'] = df['next_treatment_date']
 
     return df
 
@@ -94,4 +109,46 @@ def backfill_treatment_info(df: pd.DataFrame):
     for col in ["regimen", "line_of_therapy", "intent", "cycle_number", "height", "weight", "body_surface_area"]:
         df.loc[no_trts_prior, col] = df.pop(f"next_{col}")
     df.loc[no_trts_prior, "days_since_starting_treatment"] = 0
+    return df
+
+
+def fill_body_measurements(df: pd.DataFrame) -> pd.DataFrame:
+    """Fill missing height, weight, and body_surface_area values per patient.
+
+    height: forward/backward filled per mrn (assumed roughly stable over time)
+    weight, body_surface_area: filled using the nearest available value (same mrn) within
+        30 days of next_treatment_date -- looking backward first, then forward for anything
+        still missing
+    """
+    df = df.sort_values(['mrn', 'next_treatment_date'])
+
+    # height: simple ffill then bfill per patient
+    df['height'] = df.groupby('mrn')['height'].transform(lambda s: s.ffill().bfill())
+
+    for col in ['weight', 'body_surface_area']:
+        lookup = (
+            df.loc[df[col].notnull(), ['mrn', 'next_treatment_date', col]]
+            .sort_values('next_treatment_date')
+        )
+        target = (
+            df[['mrn', 'next_treatment_date']]
+            .sort_values('next_treatment_date')
+            .reset_index()
+            .rename(columns={'index': '_orig_idx'})
+        )
+
+        back = pd.merge_asof(
+            target, lookup, on='next_treatment_date', by='mrn',
+            direction='backward', tolerance=pd.Timedelta(days=30)
+        )
+        fwd = pd.merge_asof(
+            target, lookup, on='next_treatment_date', by='mrn',
+            direction='forward', tolerance=pd.Timedelta(days=30)
+        )
+
+        filled = back[col].fillna(fwd[col])
+        filled.index = target['_orig_idx'].values  # restore original row alignment
+
+        df[col] = df[col].fillna(filled)
+
     return df
