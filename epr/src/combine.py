@@ -353,14 +353,15 @@ def add_engineered_features(df, date_col: str = 'treatment_date') -> pd.DataFram
     return df
 
 
-def add_engineered_features_deployment(df: pd.DataFrame, date_col: str = 'clinic_date') -> pd.DataFrame:
+def add_engineered_features_deployment(df: pd.DataFrame, treatment: pd.DataFrame, date_col: str = 'clinic_date') -> pd.DataFrame:
     """Deployment version of add_engineered_features.
 
     Differences from add_engineered_features:
     - days_since_starting_treatment and days_since_last_treatment are clipped to 0
       instead of allowed to be negative/nan
-    - days_since_last_treatment is computed relative to the *previous row's* treatment_date
-      (sorted by date_col within each mrn), not via get_days_since_last_event
+    - days_since_last_treatment is computed against the full treatment history in `treatment`
+      (the most recent treatment_date on or before date_col, per mrn), rather than relying on
+      only the treatment_date values already present in `df`
     """
     df = get_visit_month_feature(df, col=date_col)
 
@@ -368,11 +369,26 @@ def add_engineered_features_deployment(df: pd.DataFrame, date_col: str = 'clinic
     days_since_starting = (df[date_col] - df['first_treatment_date']).dt.days
     df['days_since_starting_treatment'] = days_since_starting.where(days_since_starting >= 0, 0)
 
-    # days_since_last_treatment: sort by date_col within each mrn, then compare date_col
-    # of the current row to treatment_date of the previous row
-    df = df.sort_values(['mrn', date_col])
-    prev_treatment_date = df.groupby('mrn')['treatment_date'].shift(1)
-    days_since_last = (df[date_col] - prev_treatment_date).dt.days
+    # days_since_last_treatment: for each (mrn, date_col), find the most recent treatment_date
+    # in `treatment` that is on or before date_col
+    trt = (
+        treatment[['mrn', 'treatment_date']]
+        .drop_duplicates(subset=['mrn', 'treatment_date'])
+        .sort_values('treatment_date')
+    )
+    target = df[['mrn', date_col]].sort_values(date_col)
+
+    # merge_asof requires matching datetime resolution between merge keys
+    trt['treatment_date'] = trt['treatment_date'].astype(target[date_col].dtype)
+
+    matched = pd.merge_asof(
+        target, trt,
+        left_on=date_col, right_on='treatment_date', by='mrn',
+        direction='backward', allow_exact_matches=False,
+    )
+    matched.index = target.index  # merge_asof resets the index; restore alignment to df
+
+    days_since_last = (df[date_col] - matched['treatment_date']).dt.days
     df['days_since_last_treatment'] = days_since_last.where(days_since_last >= 0, 0)
 
     return df

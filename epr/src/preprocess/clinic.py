@@ -50,6 +50,13 @@ def filter_notes_data(df: pd.DataFrame) -> pd.DataFrame:
 # Clinic Visits
 ###############################################################################
 def get_clinic_visits_during_treatment(clinic: pd.DataFrame, treatment: pd.DataFrame, lookahead: int) -> pd.DataFrame:
+    # keep only rows at the first treatment_date for each (mrn, regimen, cycle_number) --
+    # a regimen/cycle can span multiple treatment dates, and multiple rows can share the same
+    # (mrn, regimen, cycle_number, treatment_date) if drug doses are split across rows, so we
+    # keep all tied rows here and let the later drug_sums groupby collapse them correctly
+    cycle_start_date = treatment.groupby(['mrn', 'regimen', 'cycle_number'])['treatment_date'].transform('min')
+    treatment = treatment[treatment['treatment_date'] == cycle_start_date]
+
     # combine clinic and treatment
     clinic = clinic[["mrn", "clinic_date", "last_updated_date"]]
     cols = ["treatment_date", "regimen", "line_of_therapy", "intent", "cycle_number", "height", "weight", "body_surface_area"]
@@ -70,11 +77,14 @@ def get_clinic_visits_during_treatment(clinic: pd.DataFrame, treatment: pd.DataF
 
     # sum drug doses within the same upcoming session (mrn + next_treatment_date), so doses
     # from a *different* upcoming session for the same clinic visit don't get blended in
+    # NOTE: it seems that this is not necessary since for a given mrn, clinic date, and next treatment date, there
+    # is only 1 row
     drug_sums = df.groupby(["mrn", "clinic_date", "next_treatment_date"])[drug_cols].sum()
 
-    # remove duplicates from the merging, keeping only the nearest upcoming treatment's info
-    df = df.sort_values(by=["mrn", "next_treatment_date"])
-    df = df.drop_duplicates(subset=["mrn", "clinic_date"], keep="first")
+    # remove duplicates from the merging
+    # For every treatment date, we only want to keep most recent clinic date
+    df = df.sort_values(by=["mrn", "clinic_date"])
+    df = df.drop_duplicates(subset=["mrn", "next_treatment_date"], keep="last")
     df = df.drop(columns=drug_cols)
 
     # attach the summed drug doses
@@ -120,6 +130,8 @@ def fill_body_measurements(df: pd.DataFrame) -> pd.DataFrame:
         30 days of next_treatment_date -- looking backward first, then forward for anything
         still missing
     """
+    # NOTE: not much of an issue now but may want to think about using formula
+    # for body_surface_area instead of backfilling
     df = df.sort_values(['mrn', 'next_treatment_date'])
 
     # height: simple ffill then bfill per patient
