@@ -83,8 +83,12 @@ def get_clinic_visits_during_treatment(clinic: pd.DataFrame, treatment: pd.DataF
 
     # remove duplicates from the merging
     # For every treatment date, we only want to keep most recent clinic date
-    df = df.sort_values(by=["mrn", "clinic_date"])
+    df = df.sort_values(by=["mrn", "clinic_date", "next_treatment_date"])
     df = df.drop_duplicates(subset=["mrn", "next_treatment_date"], keep="last")
+    # there are some edge cases a clinic date is mapped to multiple treatment dates
+    # because there might be a change in regimen
+    # in live deployment, we won't know this a priori so we keep the first clinic date
+    df = df.drop_duplicates(subset=["mrn", "clinic_date"], keep="first")
     df = df.drop(columns=drug_cols)
 
     # attach the summed drug doses
