@@ -110,6 +110,70 @@ def combine_chemo_to_main_data(
     return main
 
 
+def combine_chemo_to_main_data_deployment(
+    main: pl.DataFrame | pl.LazyFrame, 
+    chemo: pl.DataFrame | pl.LazyFrame, 
+    main_date_col: str, 
+    time_window: tuple[int, int] = (0, 5),
+) -> pl.DataFrame | pl.LazyFrame:
+    # Further process the chemo
+    chemo = prepare_chemo(chemo)
+
+    # Merge them together
+    if isinstance(main, pl.LazyFrame): chemo = chemo.lazy()
+    main = merge_closest_measurements(
+        main, chemo, 
+        main_date_col=main_date_col, 
+        meas_date_col="treatment_date", 
+        direction="forward", 
+        merge_individually=False,
+        time_window=time_window
+    )
+
+    # Create days since starting treatment column (clamped to 0 for negative/null/nan)
+    days_since_start = (pl.col(main_date_col) - pl.col('first_treatment_date')).dt.total_days()
+    main = main.with_columns(
+        pl.when((days_since_start.is_nan()) | (days_since_start.is_null()) | (days_since_start < 0))
+        .then(0)
+        .otherwise(days_since_start)
+        .alias('days_since_starting_treatment')
+    )
+
+    # Create days since last treatment column via asof merge
+    # Shift main_date_col back by 1 day so that join_asof backward (<=) effectively enforces strict inequality (<)
+    main_cols = main.select('mrn', main_date_col).sort('mrn', main_date_col)
+    main_cols = main_cols.with_columns((pl.col(main_date_col) - pl.duration(days=1)).alias('_shifted_date'))
+    chemo_cols = chemo.select('mrn', 'treatment_date').sort('mrn', 'treatment_date')
+
+    asof_result = main_cols.join_asof(
+        chemo_cols, left_on='_shifted_date', right_on='treatment_date', by='mrn', 
+        strategy='backward', check_sortedness=False
+    )
+    days_since_last = (pl.col(main_date_col) - pl.col('treatment_date')).dt.total_days()
+    days_since_last_treatment = (
+        asof_result
+        .with_columns(
+            pl.when((days_since_last.is_nan()) | (days_since_last.is_null()) | (days_since_last < 0))
+            .then(0)
+            .otherwise(days_since_last)
+            .alias('days_since_last_treatment')
+        )
+        .select('mrn', main_date_col, 'days_since_last_treatment')
+    )
+
+    main = main.join(days_since_last_treatment, on=['mrn', main_date_col], how='left')
+
+    # for every cycle and regimen, we want to restrict to the very first treatment only
+    main = (
+        main
+        .sort('mrn', 'first_treatment_date', 'cycle_number', 'treatment_date')
+        .group_by('mrn', 'first_treatment_date', 'cycle_number', maintain_order=True)
+        .first()
+    )
+
+    return main
+
+
 def combine_radiation_to_main_data(
     main: pl.DataFrame | pl.LazyFrame, 
     rad: pl.DataFrame | pl.LazyFrame, 
@@ -238,7 +302,7 @@ def get_clinic_prior_to_treatment(
     treatment: pl.DataFrame | pl.LazyFrame,
     lookback_window: int = 5, # days
     phys_names: list[str] | None = None,
-    strategy: str = 'earliest'
+    strategy: str = 'latest'
 ) -> pl.DataFrame | pl.LazyFrame:
     """
     Only keep clinic visits prior to a given treatment session within the lookback window
@@ -255,7 +319,11 @@ def get_clinic_prior_to_treatment(
         # filter by physician names
         clinic = clinic.filter(pl.col('physician_name').is_in(phys_names))
 
+    # drop duplicates in clinic with respect to "mrn" and "clinic_date"
+    clinic = clinic.unique(subset=['mrn', 'clinic_date'])
+
     # only keep clinic visits that has a treatment scheduled within the next X days
+    # note: even though it says lookback_window, it is actually looking ahead
     df = merge_closest_measurements(
         clinic, 
         treatment.select("mrn", "treatment_date"), 
@@ -277,6 +345,15 @@ def get_clinic_prior_to_treatment(
         # (if multiple visits within X days prior to a treatment session)
         df = (
             df
+            .unique(subset=['mrn', 'next_sched_trt_date'])
+            .sort('mrn', 'clinic_date')
+        )
+    elif strategy == 'latest':
+        # this ensures that for every treatment date, we only take the
+        # most recent clinic date
+        df = (
+            df
+            .sort('mrn', 'clinic_date', descending=True)
             .unique(subset=['mrn', 'next_sched_trt_date'])
             .sort('mrn', 'clinic_date')
         )
