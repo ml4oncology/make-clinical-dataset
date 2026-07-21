@@ -122,14 +122,18 @@ def combine_chemo_to_main_data_deployment(
     # Merge them together
     if isinstance(main, pl.LazyFrame): chemo = chemo.lazy()
     main = merge_closest_measurements(
-        main, chemo, main_date_col=main_date_col, meas_date_col="treatment_date", merge_individually=False,
+        main, chemo, 
+        main_date_col=main_date_col, 
+        meas_date_col="treatment_date", 
+        direction="forward", 
+        merge_individually=False,
         time_window=time_window
     )
 
     # Create days since starting treatment column (clamped to 0 for negative/null/nan)
     days_since_start = (pl.col(main_date_col) - pl.col('first_treatment_date')).dt.total_days()
     main = main.with_columns(
-        pl.when(days_since_start.is_nan() | days_since_start.is_null() | days_since_start < 0)
+        pl.when((days_since_start.is_nan()) | (days_since_start.is_null()) | (days_since_start < 0))
         .then(0)
         .otherwise(days_since_start)
         .alias('days_since_starting_treatment')
@@ -149,7 +153,7 @@ def combine_chemo_to_main_data_deployment(
     days_since_last_treatment = (
         asof_result
         .with_columns(
-            pl.when(days_since_last.is_nan() | days_since_last.is_null() | days_since_last < 0)
+            pl.when((days_since_last.is_nan()) | (days_since_last.is_null()) | (days_since_last < 0))
             .then(0)
             .otherwise(days_since_last)
             .alias('days_since_last_treatment')
@@ -158,6 +162,14 @@ def combine_chemo_to_main_data_deployment(
     )
 
     main = main.join(days_since_last_treatment, on=['mrn', main_date_col], how='left')
+
+    # for every cycle and regimen, we want to restrict to the very first treatment only
+    main = (
+        main
+        .sort('mrn', 'first_treatment_date', 'cycle_number', 'treatment_date')
+        .group_by('mrn', 'first_treatment_date', 'cycle_number', maintain_order=True)
+        .first()
+    )
 
     return main
 
