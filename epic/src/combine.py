@@ -233,11 +233,16 @@ def combine_acu_to_main_data(
         event_name="hospitalization", extra_cols=["length_of_stay", "note"], 
         lookback_window=lookback_window
     )
-    
+
+    # carry the data source of the closest prior ED visit
+    # (rename to avoid colliding with main's existing chemo-derived `data_source` column,
+    #  which would otherwise become `data_source_right` in the join)
+    emerg = emerg.rename({"data_source": "ED_source"})
     main = combine_event_to_main_data(
         main, emerg, main_date_col, "ED_arrival_date", event_name="ED_visit", 
-        extra_cols=["CTAS_score", "note"], lookback_window=lookback_window
+        extra_cols=["CTAS_score", "note", "ED_source"], lookback_window=lookback_window
     )
+    main = main.rename({"prev_ED_visit_ED_source": "prev_ED_visit_data_source"})
 
     return main
 
