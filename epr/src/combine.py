@@ -389,6 +389,6 @@ def add_engineered_features_deployment(df: pd.DataFrame, treatment: pd.DataFrame
     matched.index = target.index  # merge_asof resets the index; restore alignment to df
 
     days_since_last = (df[date_col] - matched['treatment_date']).dt.days
-    df['days_since_last_treatment'] = days_since_last.where(days_since_last >= 0, 0)
+    df['days_since_last_treatment'] = days_since_last
 
     return df
