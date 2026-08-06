@@ -152,12 +152,7 @@ def combine_chemo_to_main_data_deployment(
     days_since_last = (pl.col(main_date_col) - pl.col('treatment_date')).dt.total_days()
     days_since_last_treatment = (
         asof_result
-        .with_columns(
-            pl.when((days_since_last.is_nan()) | (days_since_last.is_null()) | (days_since_last < 0))
-            .then(0)
-            .otherwise(days_since_last)
-            .alias('days_since_last_treatment')
-        )
+        .with_columns(days_since_last.alias('days_since_last_treatment'))
         .select('mrn', main_date_col, 'days_since_last_treatment')
     )
 
@@ -274,6 +269,17 @@ def combine_event_to_main_data(
     # Extract the event features
     # main = main.lazy()
     # event = event.lazy()
+    aggs = [
+        pl.len().alias(num_events_col),
+        pl.col(event_date_col).max().alias(prev_date_col),
+        *[pl.col(col).last().alias(f'prev_{event_name}_{col}') for col in extra_cols],
+    ]
+    if lookback_window > 1:
+        aggs.append(
+            (pl.col(event_date_col) >= (pl.col(main_date_col) - pl.duration(days=365)))
+            .sum()
+            .alias(f'num_prior_{event_name}s_within_1_year')
+        )
     event_feats = (
         main
         .join(event, on="mrn", how="left") # WARNING: beware of exploding joins, use lazy evaluation when necessary
@@ -282,21 +288,20 @@ def combine_event_to_main_data(
             (pl.col(event_date_col) >= (pl.col(main_date_col) - pl.duration(days=365 * lookback_window)))
         )
         .group_by(["mrn", main_date_col])
-        .agg(
-            pl.len().alias(num_events_col),
-            pl.col(event_date_col).max().alias(prev_date_col),
-            *[pl.col(col).last().alias(f'prev_{event_name}_{col}') for col in extra_cols]
-        )
+        .agg(aggs)
         .with_columns(
             (pl.col(main_date_col) - pl.col(prev_date_col)).dt.total_days().alias(days_since_col)
         )
     )
 
     # Merge the event features to main
+    fill_cols = [num_events_col]
+    if lookback_window > 1:
+        fill_cols.append(f'num_prior_{event_name}s_within_1_year')
     main = (   
         main
         .join(event_feats, on=["mrn", main_date_col], how="left")
-        .with_columns(pl.col(num_events_col).fill_null(0))
+        .with_columns([pl.col(col).fill_null(0) for col in fill_cols])
     )
 
     return main
