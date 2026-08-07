@@ -5,7 +5,7 @@ from pathlib import Path
 ###############################################################################
 ROOT_DIR = '/cluster/projects/gliugroup/2BLAST'
 SRC_DIR = str(Path(__file__).parent.parent)
-DEFAULT_CONFIG_PATH = f"{SRC_DIR}/config/default.yaml"
+DEFAULT_CONFIG_PATH = str(Path(__file__).parent / "config" / "default.yaml")
 INFO_DIR = f'{ROOT_DIR}/data/info/'
 
 ###############################################################################

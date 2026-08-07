@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "make_clinical_dataset"
 description = "Generate clinical dataset from patients treated at Princess Margaret Cancer Center"
-version = "2.0.1"
+version = "2.1.0"
 authors = [
     { name = "Kevin He", email = "Kevin.He@uhn.ca" }
 ]
@@ -36,3 +36,6 @@ dev = [
 "make_clinical_dataset.epic" = "epic/src"
 "make_clinical_dataset.epr" = "epr/src"
 "make_clinical_dataset.shared" = "shared"
+
+[tool.setuptools.package-data]
+"make_clinical_dataset.shared" = ["config/*.yaml"]
