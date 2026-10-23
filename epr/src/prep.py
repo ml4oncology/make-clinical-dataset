@@ -18,6 +18,14 @@ from sklearn.preprocessing import StandardScaler
 logger = logging.getLogger(__name__)
 
 
+PRIOR_ED_VISITS_PREFIX = "num_prior_ED_visits_within_"
+
+
+def _get_prior_ed_visit_cols(columns: Sequence[str]) -> list[str]:
+    """Return any columns matching num_prior_ED_visits_within_*."""
+    return [col for col in columns if col.startswith(PRIOR_ED_VISITS_PREFIX)]
+
+
 ###############################################################################
 # Default columns for data transformations
 ###############################################################################
@@ -44,7 +52,9 @@ DEFAULT_NORM_COLS = (
         "days_since_starting_treatment",
         "height",
         "line_of_therapy",
-        "num_prior_ED_visits_within_5_years",
+        # All columns matching PRIOR_ED_VISITS_PREFIX (e.g. num_prior_ED_visits_within_1_year,
+        # num_prior_ED_visits_within_5_years) are auto-normalized via _get_prior_ed_visit_cols()
+        # in PrepData.normalize_data()
         "visit_month_sin",
         "visit_month_cos",
         "weight",
@@ -166,7 +176,9 @@ def fill_missing_data_heuristically(
         custom_fills: a dictionary of column names and their corresponding fill values
     """
     if zero_fills is None: 
-        zero_fills = ["num_prior_ED_visits_within_5_years", "days_since_starting_treatment"]
+        zero_fills = ["days_since_starting_treatment"]
+    # safeguard: always zero-fill any prior ED visit count columns by prefix
+    zero_fills = list(dict.fromkeys([*zero_fills, *_get_prior_ed_visit_cols(df.columns)]))
     if max_fills is None:
         max_fills = ["days_since_last_treatment", "days_since_prev_ED_visit"]
     if min_fills is None:
@@ -312,6 +324,8 @@ class PrepData:
     def normalize_data(self, data: pd.DataFrame) -> pd.DataFrame:
         # use only the columns that exist in the data
         norm_cols = [col for col in self.norm_cols if col in data.columns]
+        # safeguard: normalize any prior ED visit count columns regardless of window
+        norm_cols = list(dict.fromkeys(norm_cols + _get_prior_ed_visit_cols(data.columns)))
 
         if self.scaler is None:
             self.scaler = StandardScaler()
